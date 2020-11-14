@@ -1,0 +1,11 @@
+{
+  "name": "com.noobrp.core",
+  "description": "light wieght render pipline",
+  "version": "0.0.1",
+  "unity": "2021.2",
+  "displayName": "Noob RP",
+  "dependencies": {
+    "com.unity.mathematics": "1.2.5",
+    "com.unity.render-pipelines.core": "12.1.2"
+  }
+}
