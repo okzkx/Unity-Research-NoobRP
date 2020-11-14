@@ -10,5 +10,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e89ad7d2d5d72e489b9dda65c269d0c, type: 3}
-  m_Name: New Noob Render Pipeline Asset
+  m_Name: Noob Render Pipeline Asset
   m_EditorClassIdentifier: 
+  useDynamicBatching: 1
+  useGPUInstancing: 1
+  useSRPBatcher: 0
