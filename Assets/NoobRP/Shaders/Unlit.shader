@@ -9,6 +9,8 @@
 		[Enum(Off, 0, On, 1)] _ZWrite ("Z Write", Float) = 1
 		[Toggle(_CLIPPING)] _Clipping ("Alpha Clipping", Float) = 0
 	}
+
+	CustomEditor "CustomShaderGUI"
 	
 	SubShader {
 		

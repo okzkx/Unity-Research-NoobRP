@@ -12,6 +12,8 @@
 		[Toggle(_CLIPPING)] _Clipping ("Alpha Clipping", Float) = 0
 		[Toggle(_PREMULTIPLY_ALPHA)] _PremulAlpha ("Premultiply Alpha", Float) = 0
 	}
+
+	CustomEditor "CustomShaderGUI"
 	
 	SubShader {
 		
