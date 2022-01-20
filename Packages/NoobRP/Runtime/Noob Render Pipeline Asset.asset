@@ -12,3 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 827767d43320ce54c80d1fccb5e2bab9, type: 3}
   m_Name: Noob Render Pipeline Asset
   m_EditorClassIdentifier: 
+  maxShadowDistance: 41.5

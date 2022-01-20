@@ -29,7 +29,7 @@ Shader "NoobRP/UnLit" {
         }
 
         Pass {
-            Name "FORWARD"
+            Name "Both"
             Tags {
                 "LightMode"="Both"
             }
@@ -43,6 +43,21 @@ Shader "NoobRP/UnLit" {
             #pragma fragment Frag
 
             #include "Packages/com.noobrp.core/Runtime/ShaderLibrary/ShaderPassBoth.hlsl"
+            ENDHLSL
+        }
+
+        Pass {
+            Name "ShadowCaster"
+            Tags {
+                "LightMode"="ShadowCaster"
+            }
+
+            HLSLPROGRAM
+            
+            #pragma vertex ShadowCasterPassVertex
+            #pragma fragment ShadowCasterPassFragment
+
+            #include "Packages/com.noobrp.core/Runtime/ShaderLibrary/ShaderPassShadowCaster.hlsl"
             ENDHLSL
         }
     }
