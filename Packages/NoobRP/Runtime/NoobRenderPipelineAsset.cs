@@ -79,36 +79,35 @@ public class NoobRenderPipeline : RenderPipeline {
                 cmb.ClearRenderTarget(true, false, Color.clear);
 
                 int activeLightIndex = 0;
-                int splitIndex = 0;
+
                 int sideSplitCount = 2;
                 int splitCount = sideSplitCount * sideSplitCount;
                 int shadowResolution = rtSide / sideSplitCount;
                 float shadowNearPlaneOffset = 0.003f;
-                float cullingFactor = 0.4f;
+                Matrix4x4[] dirShadowMatrices = new Matrix4x4[splitCount];
+                // float cullingFactor = 0.4f;
                 Vector3 splitRatio = new Vector3(0.25f, 0.5f, 0.75f);
 
-                for (; splitIndex < splitCount; splitIndex++) {
-                    
-                cullingResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(
-                    activeLightIndex, splitIndex, splitCount, splitRatio, shadowResolution,
-                    shadowNearPlaneOffset, out Matrix4x4 viewMatrix,
-                    out Matrix4x4 projMatrix, out ShadowSplitData shadowSplitData
-                );
+                for (int splitIndex = 0; splitIndex < splitCount; splitIndex++) {
+                    cullingResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(
+                        activeLightIndex, splitIndex, splitCount, splitRatio, shadowResolution,
+                        shadowNearPlaneOffset, out Matrix4x4 viewMatrix,
+                        out Matrix4x4 projMatrix, out ShadowSplitData shadowSplitData
+                    );
 
-                Vector2 offset = SetTileViewport(cmb, splitIndex, sideSplitCount, shadowResolution);
+                    Vector2 offset = SetTileViewport(cmb, splitIndex, sideSplitCount, shadowResolution);
 
-                // Matrix4x4[] dirShadowMatrices = new Matrix4x4[1];
-                // dirShadowMatrices[0] = ConvertToAtlasMatrix(projMatrix * viewMatrix,offset
-                //     , splitCount
-                // );
-                // cmb.SetGlobalVector(shadowAtlasSizeId, new Vector4(atlasSize, 1f / atlasSize));
-                cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
-                ExcuteAndClearCommandBuffer(context, cmb);
+                    dirShadowMatrices[splitIndex] = ConvertToAtlasMatrix(projMatrix * viewMatrix, offset, sideSplitCount);
+                    // cmb.SetGlobalVector(shadowAtlasSizeId, new Vector4(atlasSize, 1f / atlasSize));
+                    cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
+                    ExcuteAndClearCommandBuffer(context, cmb);
 
-                ShadowDrawingSettings shadowDrawingSettings = new ShadowDrawingSettings(cullingResults, activeLightIndex);
-                shadowDrawingSettings.splitData = shadowSplitData;
-                context.DrawShadows(ref shadowDrawingSettings);
+                    ShadowDrawingSettings shadowDrawingSettings = new ShadowDrawingSettings(cullingResults, activeLightIndex);
+                    shadowDrawingSettings.splitData = shadowSplitData;
+                    context.DrawShadows(ref shadowDrawingSettings);
                 }
+
+                cmb.SetGlobalMatrixArray("_DirectionalShadowMatrices", dirShadowMatrices);
             }
         }
 
@@ -161,25 +160,12 @@ public class NoobRenderPipeline : RenderPipeline {
 
     static Matrix4x4 ConvertToAtlasMatrix(Matrix4x4 m, Vector2 offset, int split) {
         if (SystemInfo.usesReversedZBuffer) {
-            m.m20 = -m.m20;
-            m.m21 = -m.m21;
-            m.m22 = -m.m22;
-            m.m23 = -m.m23;
+            m.SetRow(2, -m.GetRow(2));
         }
 
-        float scale = 1f / split;
-        m.m00 = (0.5f * (m.m00 + m.m30) + offset.x * m.m30) * scale;
-        m.m01 = (0.5f * (m.m01 + m.m31) + offset.x * m.m31) * scale;
-        m.m02 = (0.5f * (m.m02 + m.m32) + offset.x * m.m32) * scale;
-        m.m03 = (0.5f * (m.m03 + m.m33) + offset.x * m.m33) * scale;
-        m.m10 = (0.5f * (m.m10 + m.m30) + offset.y * m.m30) * scale;
-        m.m11 = (0.5f * (m.m11 + m.m31) + offset.y * m.m31) * scale;
-        m.m12 = (0.5f * (m.m12 + m.m32) + offset.y * m.m32) * scale;
-        m.m13 = (0.5f * (m.m13 + m.m33) + offset.y * m.m33) * scale;
-        m.m20 = 0.5f * (m.m20 + m.m30);
-        m.m21 = 0.5f * (m.m21 + m.m31);
-        m.m22 = 0.5f * (m.m22 + m.m32);
-        m.m23 = 0.5f * (m.m23 + m.m33);
+        m = Matrix4x4.Scale(math.float3(0.25f, 0.25f, 0.5f)) * m;
+        m = Matrix4x4.Translate(math.float3(0.25f + 0.5f * offset.x, 0.25f + 0.5f * offset.y, 0.5f)) * m;
+
         return m;
     }
 }

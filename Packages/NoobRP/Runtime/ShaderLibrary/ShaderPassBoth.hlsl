@@ -1,5 +1,5 @@
-﻿
-#include "light.hlsl"
+﻿#include "light.hlsl"
+#include "Shadow.hlsl"
 
 //-------------------------------------------------------------------------------------
 // variable declaration
@@ -53,20 +53,20 @@ VaryingsMeshToPS Vert(AttributesMesh inputMesh)
 
 float4 Frag(VaryingsMeshToPS input): SV_Target0
 {
-    DirectionalLight simpleLight = GetDirectionalLight();
-    float3 lightWS = normalize(simpleLight.directionWS);
-    
+    DirectionalLight light = GetDirectionalLight();
+    float3 lightWS = normalize(light.directionWS);
+
     // L(Luminance) : Radiance input
-    float3 Li = simpleLight.color;
+    float3 Li = light.color * GetDirectionalShadowAttenuation(light.directionWS, input.positionWS);
     // E(Illuminance) : To simulate the Irradiance in BRDF
     float3 E = Li * saturate(dot(input.normalWS, lightWS)) * _LightIntencity;
-    
+
     #if defined(_DIFFUSE_HALF_LAMBERT)
         E = E * 0.5 + 0.5;
     #endif
-    
+
     float3 specular = 0;
-    
+
     // Specular
     #if !defined(_SPECULAR_NONE)
         float3 viewWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS);
@@ -80,11 +80,11 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     #endif
         specular = specularFactor * _SpecularColor.rgb;
     #endif
-    
+
     // albedo : material surface color
     float3 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.texCoord0).rgb * _BaseColor.rgb;
     // Resolve render equation in fake brdf
     float3 Lo = (albedo / PI + specular) * E;
-    
+
     return float4(Lo, 1);
 }
