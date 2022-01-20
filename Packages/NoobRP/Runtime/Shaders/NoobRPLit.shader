@@ -31,10 +31,13 @@ Shader "NoobRP/UnLit" {
         Pass {
             Name "FORWARD"
             Tags {
-                "LightMode"="NoobRPLightMode"
+                "LightMode"="Both"
             }
 
             HLSLPROGRAM
+            
+            #pragma multi_compile _DIFFUSE_LAMBERT _DIFFUSE_HALF_LAMBERT
+            #pragma multi_compile _SPECULAR_NONE _SPECULAR_PHONE _SPECULAR_BLING_PHONE
 
             #pragma vertex Vert
             #pragma fragment Frag

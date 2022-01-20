@@ -1,4 +1,7 @@
-﻿//-------------------------------------------------------------------------------------
+﻿
+#include "light.hlsl"
+
+//-------------------------------------------------------------------------------------
 // variable declaration
 //-------------------------------------------------------------------------------------
 
@@ -50,40 +53,38 @@ VaryingsMeshToPS Vert(AttributesMesh inputMesh)
 
 float4 Frag(VaryingsMeshToPS input): SV_Target0
 {
-    return _BaseColor;
-
-    //  SimpleLight simpleLight = GetSimpleLight();
-    //  float3 lightWS = normalize(simpleLight.directionWS);
-    //
-    //  // L(Luminance) : Radiance input
-    //  float3 Li = simpleLight.color;
-    //  // E(Illuminance) : To simulate the Irradiance in BRDF
-    //  float3 E = Li * saturate(dot(input.normalWS, lightWS)) * _LightIntencity;
-    //
-    //  #if defined(_DIFFUSE_HALF_LAMBERT)
-    //      E = E * 0.5 + 0.5;
-    //  #endif
-    //
-    //  float3 specular = 0;
-    //
-    //  // Specular
-    //  #if !defined(_SPECULAR_NONE)
-    //      float3 viewWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS);
-    //      float specularFactor = 0;
-    //  #if defined(_SPECULAR_PHONE)
-    //      float3 reflectWS = reflect(-lightWS, input.normalWS);
-    //      specularFactor = pow(max(0.0, dot(reflectWS, viewWS)), _SpecularPow);
-    //  #else // Defined _SPECULAR_BLING_PHONE
-    //      float3 halfWS = normalize(viewWS + lightWS);
-    //      specularFactor = pow(max(0.0, dot(input.normalWS, halfWS)), _SpecularPow);
-    //  #endif
-    //      specular = specularFactor * _SpecularColor.rgb;
-    //  #endif
-    //
-    //  // albedo : material surface color
-    //  float3 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.texCoord0).rgb * _BaseColor.rgb;
-    //  // Resolve render equation in fake brdf
-    //  float3 Lo = (albedo / PI + specular) * E;
-    //
-    //  return float4(Lo, 1);
+    DirectionalLight simpleLight = GetDirectionalLight();
+    float3 lightWS = normalize(simpleLight.directionWS);
+    
+    // L(Luminance) : Radiance input
+    float3 Li = simpleLight.color;
+    // E(Illuminance) : To simulate the Irradiance in BRDF
+    float3 E = Li * saturate(dot(input.normalWS, lightWS)) * _LightIntencity;
+    
+    #if defined(_DIFFUSE_HALF_LAMBERT)
+        E = E * 0.5 + 0.5;
+    #endif
+    
+    float3 specular = 0;
+    
+    // Specular
+    #if !defined(_SPECULAR_NONE)
+        float3 viewWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS);
+        float specularFactor = 0;
+    #if defined(_SPECULAR_PHONE)
+        float3 reflectWS = reflect(-lightWS, input.normalWS);
+        specularFactor = pow(max(0.0, dot(reflectWS, viewWS)), _SpecularPow);
+    #else // Defined _SPECULAR_BLING_PHONE
+        float3 halfWS = normalize(viewWS + lightWS);
+        specularFactor = pow(max(0.0, dot(input.normalWS, halfWS)), _SpecularPow);
+    #endif
+        specular = specularFactor * _SpecularColor.rgb;
+    #endif
+    
+    // albedo : material surface color
+    float3 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.texCoord0).rgb * _BaseColor.rgb;
+    // Resolve render equation in fake brdf
+    float3 Lo = (albedo / PI + specular) * E;
+    
+    return float4(Lo, 1);
 }
