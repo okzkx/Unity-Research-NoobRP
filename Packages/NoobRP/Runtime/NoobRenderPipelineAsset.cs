@@ -80,34 +80,41 @@ public class NoobRenderPipeline : RenderPipeline {
 
                 int activeLightIndex = 0;
 
-                int sideSplitCount = 2;
-                int splitCount = sideSplitCount * sideSplitCount;
-                int shadowResolution = rtSide / sideSplitCount;
-                float shadowNearPlaneOffset = 0.003f;
-                Matrix4x4[] dirShadowMatrices = new Matrix4x4[splitCount];
-                // float cullingFactor = 0.4f;
-                Vector3 splitRatio = new Vector3(0.25f, 0.5f, 0.75f);
+                if (cullingResults.GetShadowCasterBounds(activeLightIndex, out Bounds bounds)) {
+                    int sideSplitCount = 2;
+                    int splitCount = sideSplitCount * sideSplitCount;
+                    int shadowResolution = rtSide / sideSplitCount;
+                    float shadowNearPlaneOffset = 0.003f;
+                    Matrix4x4[] dirShadowMatrices = new Matrix4x4[splitCount];
+                    Vector4[] cullingSpheres = new Vector4[splitCount];
+                    Vector3 splitRatio = new Vector3(0.25f, 0.5f, 0.75f);
 
-                for (int splitIndex = 0; splitIndex < splitCount; splitIndex++) {
-                    cullingResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(
-                        activeLightIndex, splitIndex, splitCount, splitRatio, shadowResolution,
-                        shadowNearPlaneOffset, out Matrix4x4 viewMatrix,
-                        out Matrix4x4 projMatrix, out ShadowSplitData shadowSplitData
-                    );
+                    for (int splitIndex = 0; splitIndex < splitCount; splitIndex++) {
+                        cullingResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(
+                            activeLightIndex, splitIndex, splitCount, splitRatio, shadowResolution,
+                            shadowNearPlaneOffset, out Matrix4x4 viewMatrix,
+                            out Matrix4x4 projMatrix, out ShadowSplitData shadowSplitData
+                        );
 
-                    Vector2 offset = SetTileViewport(cmb, splitIndex, sideSplitCount, shadowResolution);
+                        Vector2 offset = SetTileViewport(cmb, splitIndex, sideSplitCount, shadowResolution);
 
-                    dirShadowMatrices[splitIndex] = ConvertToAtlasMatrix(projMatrix * viewMatrix, offset, sideSplitCount);
-                    // cmb.SetGlobalVector(shadowAtlasSizeId, new Vector4(atlasSize, 1f / atlasSize));
-                    cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
-                    ExcuteAndClearCommandBuffer(context, cmb);
+                        dirShadowMatrices[splitIndex] = ConvertToAtlasMatrix(projMatrix * viewMatrix, offset, sideSplitCount);
+                        // cmb.SetGlobalVector(shadowAtlasSizeId, new Vector4(atlasSize, 1f / atlasSize));
+                        cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
+                        ExcuteAndClearCommandBuffer(context, cmb);
 
-                    ShadowDrawingSettings shadowDrawingSettings = new ShadowDrawingSettings(cullingResults, activeLightIndex);
-                    shadowDrawingSettings.splitData = shadowSplitData;
-                    context.DrawShadows(ref shadowDrawingSettings);
+                        cullingSpheres[splitIndex] = shadowSplitData.cullingSphere;
+
+                        ShadowDrawingSettings shadowDrawingSettings = new ShadowDrawingSettings(cullingResults, activeLightIndex);
+                        shadowDrawingSettings.splitData = shadowSplitData;
+                        context.DrawShadows(ref shadowDrawingSettings);
+                    }
+
+                    cmb.SetGlobalMatrixArray("_DirectionalShadowMatrices", dirShadowMatrices);
+                    cmb.SetGlobalVectorArray("_CullingSpheres", cullingSpheres);
                 }
-
-                cmb.SetGlobalMatrixArray("_DirectionalShadowMatrices", dirShadowMatrices);
+                
+                ExcuteAndClearCommandBuffer(context, cmb);
             }
         }
 

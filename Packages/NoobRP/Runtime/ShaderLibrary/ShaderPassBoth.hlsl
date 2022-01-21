@@ -57,7 +57,8 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     float3 lightWS = normalize(light.directionWS);
 
     // L(Luminance) : Radiance input
-    float3 Li = light.color * GetDirectionalShadowAttenuation(light.directionWS, input.positionWS);
+    float lightAttenuation = GetDirectionalShadowAttenuation(light.directionWS, input.positionWS);
+    float3 Li = light.color * lightAttenuation;
     // E(Illuminance) : To simulate the Irradiance in BRDF
     float3 E = Li * saturate(dot(input.normalWS, lightWS)) * _LightIntencity;
 

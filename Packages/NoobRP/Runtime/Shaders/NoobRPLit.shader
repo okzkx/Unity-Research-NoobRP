@@ -1,4 +1,4 @@
-Shader "NoobRP/UnLit" {
+Shader "NoobRP/Lit" {
     Properties {
         _LightIntencity("光照强度", Float) = 4
         [KeywordEnum(Lambert, Half_Lambert)] _Diffuse("漫反射模型", Float) = 0
