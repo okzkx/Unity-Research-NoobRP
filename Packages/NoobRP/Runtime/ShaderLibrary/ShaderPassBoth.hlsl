@@ -63,25 +63,11 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     // E(Illuminance) : To simulate the Irradiance in BRDF
     float3 E = Li * saturate(dot(input.normalWS, lightWS)) * _LightIntencity;
 
-    #if defined(_DIFFUSE_HALF_LAMBERT)
-        E = E * 0.5 + 0.5;
-    #endif
-
-    float3 specular = 0;
-
     // Specular
-    #if !defined(_SPECULAR_NONE)
-        float3 viewWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS);
-        float specularFactor = 0;
-    #if defined(_SPECULAR_PHONE)
-        float3 reflectWS = reflect(-lightWS, input.normalWS);
-        specularFactor = pow(max(0.0, dot(reflectWS, viewWS)), _SpecularPow);
-    #else // Defined _SPECULAR_BLING_PHONE
-        float3 halfWS = normalize(viewWS + lightWS);
-        specularFactor = pow(max(0.0, dot(input.normalWS, halfWS)), _SpecularPow);
-    #endif
-        specular = specularFactor * _SpecularColor.rgb;
-    #endif
+    float3 viewWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS);
+    float3 halfWS = normalize(viewWS + lightWS);
+    float specularFactor = pow(max(0.0, dot(input.normalWS, halfWS)), _SpecularPow);
+    float3 specular = specularFactor * _SpecularColor.rgb;
 
     // albedo : material surface color
     float4 sample = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.texCoord0);
@@ -89,6 +75,11 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     clip(albedo.a - _CutOff);
     // Resolve render equation in fake brdf
     float3 Lo = (albedo.xyz / PI + specular) * E;
+
+    // Reflection
+    float3 envLightDir = reflect(-viewWS, input.normalWS);
+    float4 environment = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, envLightDir, 0.0);
+    Lo += environment.xyz; // unity_SpecCube0 doesn't work well  
 
     return float4(Lo, 1);
 }

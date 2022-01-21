@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: circuitry-albedo
+  m_Name: circuitry-albedo 1
   m_Shader: {fileID: 4800000, guid: 1ee4b5ab8417365449bc383d80e18804, type: 3}
   m_ShaderKeywords: _DIFFUSE_HALF_LAMBERT _SPECULAR_BLING_PHONE
   m_LightmapFlags: 4
@@ -20,7 +20,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _MainTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 0ec6a4afb296e424ab8e17130f84c389, type: 3}
         m_Scale: {x: 1, y: 2.41}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
@@ -28,7 +28,7 @@ Material:
     - _CutOff: 0
     - _Cutoff: 0.5
     - _Diffuse: 1
-    - _LightIntencity: 4
+    - _LightIntencity: 2
     - _Specular: 2
     - _SpecularPow: 90
     m_Colors:

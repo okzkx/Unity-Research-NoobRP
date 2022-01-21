@@ -133,6 +133,12 @@ public class NoobRenderPipeline : RenderPipeline {
             // Draw opaque
             sortingSettings.criteria = SortingCriteria.CommonOpaque;
             drawingSettings.sortingSettings = sortingSettings;
+            drawingSettings.perObjectData =
+                PerObjectData.ReflectionProbes |
+                PerObjectData.Lightmaps | PerObjectData.ShadowMask |
+                PerObjectData.LightProbe | PerObjectData.OcclusionProbe |
+                PerObjectData.LightProbeProxyVolume |
+                PerObjectData.OcclusionProbeProxyVolume;
             filteringSettings.renderQueueRange = RenderQueueRange.opaque;
             context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
 

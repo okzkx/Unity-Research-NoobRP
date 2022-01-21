@@ -1,7 +1,36 @@
 ﻿// UNITY_SHADER_NO_UPGRADE
 
-#ifndef XRP_SHADER_VARIABLES_INCLUDED
-#define XRP_SHADER_VARIABLES_INCLUDED
+#ifndef UNIVERSAL_SHADER_VARIABLES_INCLUDED
+#define UNIVERSAL_SHADER_VARIABLES_INCLUDED
+
+#if defined(STEREO_INSTANCING_ON) && (defined(SHADER_API_D3D11) || defined(SHADER_API_GLES3) || defined(SHADER_API_GLCORE) || defined(SHADER_API_PSSL) || defined(SHADER_API_VULKAN))
+#define UNITY_STEREO_INSTANCING_ENABLED
+#endif
+
+#if defined(STEREO_MULTIVIEW_ON) && (defined(SHADER_API_GLES3) || defined(SHADER_API_GLCORE) || defined(SHADER_API_VULKAN)) && !(defined(SHADER_API_SWITCH))
+    #define UNITY_STEREO_MULTIVIEW_ENABLED
+#endif
+
+#if defined(UNITY_SINGLE_PASS_STEREO) || defined(UNITY_STEREO_INSTANCING_ENABLED) || defined(UNITY_STEREO_MULTIVIEW_ENABLED)
+#define USING_STEREO_MATRICES
+#endif
+
+#if defined(USING_STEREO_MATRICES)
+// Current pass transforms.
+#define glstate_matrix_projection     unity_StereoMatrixP[unity_StereoEyeIndex] // goes through GL.GetGPUProjectionMatrix()
+#define unity_MatrixV                 unity_StereoMatrixV[unity_StereoEyeIndex]
+#define unity_MatrixInvV              unity_StereoMatrixInvV[unity_StereoEyeIndex]
+#define unity_MatrixInvP              unity_StereoMatrixInvP[unity_StereoEyeIndex]
+#define unity_MatrixVP                unity_StereoMatrixVP[unity_StereoEyeIndex]
+#define unity_MatrixInvVP             unity_StereoMatrixInvVP[unity_StereoEyeIndex]
+
+// Camera transform (but the same as pass transform for XR).
+#define unity_CameraProjection        unity_StereoCameraProjection[unity_StereoEyeIndex] // Does not go through GL.GetGPUProjectionMatrix()
+#define unity_CameraInvProjection     unity_StereoCameraInvProjection[unity_StereoEyeIndex]
+#define unity_WorldToCamera           unity_StereoMatrixV[unity_StereoEyeIndex] // Should be unity_StereoWorldToCamera but no use-case in XR pass
+#define unity_CameraToWorld           unity_StereoMatrixInvV[unity_StereoEyeIndex] // Should be unity_StereoCameraToWorld but no use-case in XR pass
+#define _WorldSpaceCameraPos          unity_StereoWorldSpaceCameraPos[unity_StereoEyeIndex]
+#endif
 
 #define UNITY_LIGHTMODEL_AMBIENT (glstate_lightmodel_ambient * 2)
 
@@ -14,8 +43,9 @@ float4 _CosTime; // cos(t/8), cos(t/4), cos(t/2), cos(t)
 float4 unity_DeltaTime; // dt, 1/dt, smoothdt, 1/smoothdt
 float4 _TimeParameters; // t, sin(t), cos(t)
 
+#if !defined(USING_STEREO_MATRICES)
 float3 _WorldSpaceCameraPos;
-
+#endif
 
 // x = 1 or -1 (-1 if projection is flipped)
 // y = near plane
@@ -47,8 +77,16 @@ float4 _ZBufferParams;
 // w = 1.0 if camera is ortho, 0.0 if perspective
 float4 unity_OrthoParams;
 
+// scaleBias.x = flipSign
+// scaleBias.y = scale
+// scaleBias.z = bias
+// scaleBias.w = unused
+uniform float4 _ScaleBias;
+uniform float4 _ScaleBiasRt;
+
 float4 unity_CameraWorldClipPlanes[6];
 
+#if !defined(USING_STEREO_MATRICES)
 // Projection matrices of the camera. Note that this might be different from projection matrix
 // that is set right now, e.g. while rendering shadows the matrices below are still the projection
 // of original camera.
@@ -56,7 +94,7 @@ float4x4 unity_CameraProjection;
 float4x4 unity_CameraInvProjection;
 float4x4 unity_WorldToCamera;
 float4x4 unity_CameraToWorld;
-
+#endif
 
 // ----------------------------------------------------------------------------
 
@@ -68,16 +106,28 @@ float4x4 unity_WorldToObject;
 float4 unity_LODFade; // x is the fade value ranging within [0,1]. y is x quantized into 16 levels
 real4 unity_WorldTransformParams; // w is usually 1.0, or -1.0 for odd-negative scale transforms
 
+// Render Layer block feature
+// Only the first channel (x) contains valid data and the float must be reinterpreted using asuint() to extract the original 32 bits values.
+float4 unity_RenderingLayer;
+
 // Light Indices block feature
 // These are set internally by the engine upon request by RendererConfiguration.
-real4 unity_LightData;
-real4 unity_LightIndices[2];
+half4 unity_LightData;
+half4 unity_LightIndices[2];
 
-float4 unity_ProbesOcclusion;
+half4 unity_ProbesOcclusion;
 
 // Reflection Probe 0 block feature
 // HDR environment map decode instructions
 real4 unity_SpecCube0_HDR;
+real4 unity_SpecCube1_HDR;
+
+float4 unity_SpecCube0_BoxMax;          // w contains the blend distance
+float4 unity_SpecCube0_BoxMin;          // w contains the lerp value
+float4 unity_SpecCube0_ProbePosition;   // w is set to 1 for box projection
+float4 unity_SpecCube1_BoxMax;          // w contains the blend distance
+float4 unity_SpecCube1_BoxMin;          // w contains the sign of (SpecCube0.importance - SpecCube1.importance)
+float4 unity_SpecCube1_ProbePosition;   // w is set to 1 for box projection
 
 // Lightmap block feature
 float4 unity_LightmapST;
@@ -91,12 +141,53 @@ real4 unity_SHBr;
 real4 unity_SHBg;
 real4 unity_SHBb;
 real4 unity_SHC;
+
+// Velocity
+float4x4 unity_MatrixPreviousM;
+float4x4 unity_MatrixPreviousMI;
+//X : Use last frame positions (right now skinned meshes are the only objects that use this
+//Y : Force No Motion
+//Z : Z bias value
+//W : Camera only
+float4 unity_MotionVectorsParams;
 CBUFFER_END
 
+#if defined(USING_STEREO_MATRICES)
+CBUFFER_START(UnityStereoViewBuffer)
+float4x4 unity_StereoMatrixP[2];
+float4x4 unity_StereoMatrixInvP[2];
+float4x4 unity_StereoMatrixV[2];
+float4x4 unity_StereoMatrixInvV[2];
+float4x4 unity_StereoMatrixVP[2];
+float4x4 unity_StereoMatrixInvVP[2];
 
-#define GLOBAL_CBUFFER_START(name)    CBUFFER_START(name)
-#define GLOBAL_CBUFFER_END            CBUFFER_END
+float4x4 unity_StereoCameraProjection[2];
+float4x4 unity_StereoCameraInvProjection[2];
 
+float3   unity_StereoWorldSpaceCameraPos[2];
+float4   unity_StereoScaleOffset[2];
+CBUFFER_END
+#endif
+
+#if defined(UNITY_STEREO_MULTIVIEW_ENABLED) && defined(SHADER_STAGE_VERTEX)
+// OVR_multiview
+// In order to convey this info over the DX compiler, we wrap it into a cbuffer.
+#if !defined(UNITY_DECLARE_MULTIVIEW)
+#define UNITY_DECLARE_MULTIVIEW(number_of_views) CBUFFER_START(OVR_multiview) uint gl_ViewID; uint numViews_##number_of_views; CBUFFER_END
+#define UNITY_VIEWID gl_ViewID
+#endif
+#endif
+
+#if defined(UNITY_STEREO_MULTIVIEW_ENABLED) && defined(SHADER_STAGE_VERTEX)
+#define unity_StereoEyeIndex UNITY_VIEWID
+UNITY_DECLARE_MULTIVIEW(2);
+#elif defined(UNITY_STEREO_INSTANCING_ENABLED) || defined(UNITY_STEREO_MULTIVIEW_ENABLED)
+static uint unity_StereoEyeIndex;
+#elif defined(UNITY_SINGLE_PASS_STEREO)
+CBUFFER_START(UnityStereoEyeIndex)
+int unity_StereoEyeIndex;
+CBUFFER_END
+#endif
 
 float4x4 glstate_matrix_transpose_modelview0;
 
@@ -110,16 +201,16 @@ real4 unity_IndirectSpecColor;
 float4 unity_FogParams;
 real4  unity_FogColor;
 
+#if !defined(USING_STEREO_MATRICES)
 float4x4 glstate_matrix_projection;
 float4x4 unity_MatrixV;
 float4x4 unity_MatrixInvV;
 float4x4 unity_MatrixInvP;
 float4x4 unity_MatrixVP;
 float4x4 unity_MatrixInvVP;
-float4x4 unity_MatrixPreviousM;
-float4x4 unity_MatrixPreviousMI;
 float4 unity_StereoScaleOffset;
 int unity_StereoEyeIndex;
+#endif
 
 real4 unity_ShadowColor;
 
@@ -128,15 +219,31 @@ real4 unity_ShadowColor;
 // Unity specific
 TEXTURECUBE(unity_SpecCube0);
 SAMPLER(samplerunity_SpecCube0);
+TEXTURECUBE(unity_SpecCube1);
+SAMPLER(samplerunity_SpecCube1);
 
 // Main lightmap
 TEXTURE2D(unity_Lightmap);
 SAMPLER(samplerunity_Lightmap);
+TEXTURE2D_ARRAY(unity_Lightmaps);
+SAMPLER(samplerunity_Lightmaps);
+
+// Dynamic lightmap
+TEXTURE2D(unity_DynamicLightmap);
+SAMPLER(samplerunity_DynamicLightmap);
+// TODO ENLIGHTEN: Instanced GI
+
 // Dual or directional lightmap (always used with unity_Lightmap, so can share sampler)
 TEXTURE2D(unity_LightmapInd);
+TEXTURE2D_ARRAY(unity_LightmapsInd);
+TEXTURE2D(unity_DynamicDirectionality);
+// TODO ENLIGHTEN: Instanced GI
+// TEXTURE2D_ARRAY(unity_DynamicDirectionality);
 
-// We can have shadowMask only if we have lightmap, so no sampler
 TEXTURE2D(unity_ShadowMask);
+SAMPLER(samplerunity_ShadowMask);
+TEXTURE2D_ARRAY(unity_ShadowMasks);
+SAMPLER(samplerunity_ShadowMasks);
 
 // ----------------------------------------------------------------------------
 
@@ -170,6 +277,9 @@ float4x4 OptimizeProjectionMatrix(float4x4 M)
     return M;
 }
 
+#endif // UNIVERSAL_SHADER_VARIABLES_INCLUDED
+
+
 #define UNITY_MATRIX_M     unity_ObjectToWorld
 #define UNITY_MATRIX_I_M   unity_WorldToObject
 #define UNITY_MATRIX_V     unity_MatrixV
@@ -184,5 +294,3 @@ float4x4 OptimizeProjectionMatrix(float4x4 M)
 #define UNITY_MATRIX_MVP   mul(UNITY_MATRIX_VP, UNITY_MATRIX_M)
 #define UNITY_PREV_MATRIX_M   unity_MatrixPreviousM
 #define UNITY_PREV_MATRIX_I_M unity_MatrixPreviousMI
-
-#endif // XRP_SHADER_VARIABLES_INCLUDED

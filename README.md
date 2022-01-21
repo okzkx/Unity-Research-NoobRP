@@ -14,6 +14,8 @@
    2. Lit shader ✔
    3. Alpha cutoff ✔
    4. Reflection
+      1. SkyBox Reflection ✔
+      2. Probe Reflection
    5. Complex
 3. Shadow
    1. Hard ✔
