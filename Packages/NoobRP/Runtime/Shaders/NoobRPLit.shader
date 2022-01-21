@@ -7,6 +7,8 @@ Shader "NoobRP/Lit" {
         [KeywordEnum(None, Phone, Bling_Phone)] _Specular("漫反射模型", Float) = 0
         _SpecularPow ("高光锐利度", Range(1,90)) =30
         _SpecularColor ("高光颜色", color) =(1.0,1.0,1.0,1.0)
+        _CutOff ("透明度裁剪", Range(0,1)) =0
+
     }
 
     HLSLINCLUDE

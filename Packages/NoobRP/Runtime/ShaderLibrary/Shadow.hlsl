@@ -4,7 +4,7 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Shadow/ShadowSamplingTent.hlsl"
 
 #define SPLIT_COUNT 4
-#define SHADOW_BIAS 0.1
+#define SHADOW_BIAS 0.2
 #define TENT_SAMEPLE_COUNT 16
 
 float4x4 _DirectionalShadowMatrices[SPLIT_COUNT];

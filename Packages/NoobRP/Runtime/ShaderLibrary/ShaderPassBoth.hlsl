@@ -34,6 +34,7 @@ float4 _MainTex_ST;
 float4 _BaseColor;
 float _SpecularPow;
 float4 _SpecularColor;
+float _CutOff;
 
 CBUFFER_END
 
@@ -83,9 +84,11 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     #endif
 
     // albedo : material surface color
-    float3 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.texCoord0).rgb * _BaseColor.rgb;
+    float4 sample = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.texCoord0);
+    float4 albedo = sample * _BaseColor;
+    clip(albedo.a - _CutOff);
     // Resolve render equation in fake brdf
-    float3 Lo = (albedo / PI + specular) * E;
+    float3 Lo = (albedo.xyz / PI + specular) * E;
 
     return float4(Lo, 1);
 }
