@@ -9,6 +9,7 @@ Shader "NoobRP/Lit" {
         _SpecularColor ("_SpecularColor", color) =(1.0,1.0,1.0,1.0)
         _CutOff ("_CutOff", Range(0,1)) =0
         _Roughness ("_Roughness", Range(0,1)) =0
+        _EnvWeight ("_EnvWeight", Range(0,1)) =0
 
     }
 

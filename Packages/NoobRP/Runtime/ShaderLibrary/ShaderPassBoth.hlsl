@@ -36,6 +36,7 @@ float _SpecularPow;
 float4 _SpecularColor;
 float _CutOff;
 float _Roughness;
+float _EnvWeight;
 
 CBUFFER_END
 
@@ -93,13 +94,16 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     // Reflection
     float3 envLightDir = reflect(-viewWS, normalWS);
     real mipMapLevel = PerceptualRoughnessToMipmapLevel(_Roughness);
-    float4 environment = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, envLightDir, mipMapLevel);
+    float4 envReflection = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, envLightDir, mipMapLevel);
+    // Probe Bake mistake now
     
     // Fresnel
-    float fresnelFactor = Pow4(1.0 - saturate(dot(normalWS, viewWS)));
-    environment *= fresnelFactor;
+    // float fresnelFactor = Pow4(1.0 - saturate(dot(normalWS, viewWS)));
+    // float3 envLo = lerp(Lo, envReflection, fresnelFactor); 
+    // envReflection *= fresnelFactor;
+    float3 envLo  = envReflection;
 
-    float3 color = Lo + environment;
+    float3 color = Lo * (1 - _EnvWeight) + envLo * _EnvWeight;
 
     return float4(color, 1);
 }

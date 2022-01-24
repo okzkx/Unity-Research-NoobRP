@@ -29,9 +29,10 @@ Material:
     - _Cutoff: 0.5
     - _Diffuse: 1
     - _LightIntencity: 4
+    - _Roughness: 0
     - _Specular: 2
     - _SpecularPow: 90
     m_Colors:
-    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _BaseColor: {r: 1, g: 0.0141509175, b: 0.0141509175, a: 1}
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
