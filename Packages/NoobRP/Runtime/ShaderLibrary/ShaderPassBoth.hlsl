@@ -35,12 +35,20 @@ float4 _BaseColor;
 float _SpecularPow;
 float4 _SpecularColor;
 float _CutOff;
+float _Roughness;
 
 CBUFFER_END
 
 //-------------------------------------------------------------------------------------
 // functions
 //-------------------------------------------------------------------------------------
+
+real PerceptualRoughnessToMipmapLevel(real perceptualRoughness)
+{
+    perceptualRoughness = perceptualRoughness * (1.7 - 0.7 * perceptualRoughness);
+
+    return perceptualRoughness * 6;
+}
 
 VaryingsMeshToPS Vert(AttributesMesh inputMesh)
 {
@@ -78,7 +86,8 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
 
     // Reflection
     float3 envLightDir = reflect(-viewWS, input.normalWS);
-    float4 environment = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, envLightDir, 0.0);
+    real mipMapLevel = PerceptualRoughnessToMipmapLevel(_Roughness);
+    float4 environment = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, envLightDir, mipMapLevel);
     Lo += environment.xyz; // unity_SpecCube0 doesn't work well  
 
     return float4(Lo, 1);
