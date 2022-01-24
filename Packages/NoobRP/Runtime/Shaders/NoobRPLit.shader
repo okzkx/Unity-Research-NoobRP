@@ -1,16 +1,21 @@
 Shader "NoobRP/Lit" {
     Properties {
         _LightIntencity("_LightIntencity", Float) = 4
-        [KeywordEnum(Lambert, Half_Lambert)] _Diffuse("_Diffuse", Float) = 0
         [MainColor]_BaseColor("_BaseColor",Color)=(1,1,1,1)
-        [MainTexture]_MainTex("_MainTex",2D)="white"{}
-        [KeywordEnum(None, Phone, Bling_Phone)] _Specular("_Specular", Float) = 0
-        _SpecularPow ("_SpecularPow", Range(1,90)) =30
-        _SpecularColor ("_SpecularColor", color) =(1.0,1.0,1.0,1.0)
-        _CutOff ("_CutOff", Range(0,1)) =0
-        _Roughness ("_Roughness", Range(0,1)) =0
+        [MainTexture]_BaseMap("_BaseMap",2D)="white"{}
+        _SpecularPow ("_SpecularPowXX", Range(1,90)) =30
+        _CutOff ("_CutOff", Range(0,1)) = 0.1
         _EnvWeight ("_EnvWeight", Range(0,1)) =0
 
+        [NoScaleOffset] _EmissionMap("EmissionMap",2D)="black"{}
+        [NoScaleOffset] _MaskMap("Mask (MODS)", 2D) = "white" {}
+        [NoScaleOffset] _NormalMap("Normals", 2D) = "bump" {}
+
+        _Emission("Emission", Range(0, 1)) = 0
+        _Metallic ("Metallic", Range(0, 1)) = 0
+        _Occlusion ("Occlusion", Range(0, 1)) = 0
+        _Smoothness ("Smoothness", Range(0, 1)) = 0.5
+        _Fresnel("FresnelXX", Range(0, 1)) = 0
     }
 
     HLSLINCLUDE
@@ -39,7 +44,6 @@ Shader "NoobRP/Lit" {
             }
 
             HLSLPROGRAM
-            
             #pragma multi_compile _DIFFUSE_LAMBERT _DIFFUSE_HALF_LAMBERT
             #pragma multi_compile _SPECULAR_NONE _SPECULAR_PHONE _SPECULAR_BLING_PHONE
 
@@ -57,7 +61,6 @@ Shader "NoobRP/Lit" {
             }
 
             HLSLPROGRAM
-            
             #pragma vertex ShadowCasterPassVertex
             #pragma fragment ShadowCasterPassFragment
 
