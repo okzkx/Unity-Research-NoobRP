@@ -64,31 +64,42 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
 {
     DirectionalLight light = GetDirectionalLight();
     float3 lightWS = normalize(light.directionWS);
+    float3 normalWS = input.normalWS;
+
+    // Directional Light BRDF
 
     // L(Luminance) : Radiance input
     float lightAttenuation = GetDirectionalShadowAttenuation(light.directionWS, input.positionWS);
     float3 Li = light.color * lightAttenuation;
     // E(Illuminance) : To simulate the Irradiance in BRDF
-    float3 E = Li * saturate(dot(input.normalWS, lightWS)) * _LightIntencity;
-
+    float3 E = Li * saturate(dot(normalWS, lightWS)) * _LightIntencity;
+    
     // Specular
     float3 viewWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS);
     float3 halfWS = normalize(viewWS + lightWS);
-    float specularFactor = pow(max(0.0, dot(input.normalWS, halfWS)), _SpecularPow);
-    float3 specular = specularFactor * _SpecularColor.rgb;
-
+    float specularFactor = pow(max(0.0, dot(normalWS, halfWS)), _SpecularPow);
+    float3 specular = specularFactor * light.color.rgb;
+    
     // albedo : material surface color
     float4 sample = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.texCoord0);
     float4 albedo = sample * _BaseColor;
     clip(albedo.a - _CutOff);
+    
     // Resolve render equation in fake brdf
-    float3 Lo = (albedo.xyz / PI + specular) * E;
+    float3 Lo = (albedo.xyz / PI  + specular ) * E;
+    
+    // Environment Light
 
     // Reflection
-    float3 envLightDir = reflect(-viewWS, input.normalWS);
+    float3 envLightDir = reflect(-viewWS, normalWS);
     real mipMapLevel = PerceptualRoughnessToMipmapLevel(_Roughness);
     float4 environment = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, envLightDir, mipMapLevel);
-    Lo += environment.xyz; // unity_SpecCube0 doesn't work well  
+    
+    // Fresnel
+    float fresnelFactor = Pow4(1.0 - saturate(dot(normalWS, viewWS)));
+    environment *= fresnelFactor;
 
-    return float4(Lo, 1);
+    float3 color = Lo + environment;
+
+    return float4(color, 1);
 }

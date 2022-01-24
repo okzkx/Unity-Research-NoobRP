@@ -1,13 +1,13 @@
 Shader "NoobRP/Lit" {
     Properties {
-        _LightIntencity("光照强度", Float) = 4
-        [KeywordEnum(Lambert, Half_Lambert)] _Diffuse("漫反射模型", Float) = 0
-        [MainColor]_BaseColor("漫反射颜色",Color)=(1,1,1,1)
-        [MainTexture]_MainTex("表面纹理",2D)="white"{}
-        [KeywordEnum(None, Phone, Bling_Phone)] _Specular("漫反射模型", Float) = 0
-        _SpecularPow ("高光锐利度", Range(1,90)) =30
-        _SpecularColor ("高光颜色", color) =(1.0,1.0,1.0,1.0)
-        _CutOff ("透明度裁剪", Range(0,1)) =0
+        _LightIntencity("_LightIntencity", Float) = 4
+        [KeywordEnum(Lambert, Half_Lambert)] _Diffuse("_Diffuse", Float) = 0
+        [MainColor]_BaseColor("_BaseColor",Color)=(1,1,1,1)
+        [MainTexture]_MainTex("_MainTex",2D)="white"{}
+        [KeywordEnum(None, Phone, Bling_Phone)] _Specular("_Specular", Float) = 0
+        _SpecularPow ("_SpecularPow", Range(1,90)) =30
+        _SpecularColor ("_SpecularColor", color) =(1.0,1.0,1.0,1.0)
+        _CutOff ("_CutOff", Range(0,1)) =0
         _Roughness ("_Roughness", Range(0,1)) =0
 
     }
