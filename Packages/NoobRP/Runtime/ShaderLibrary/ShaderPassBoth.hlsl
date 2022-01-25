@@ -40,7 +40,7 @@ CBUFFER_START(UnityPerMaterial)
 
 float4 _BaseMap_ST;
 
-float _LightIntencity;
+float4 _EmissionColor;
 float4 _BaseColor;
 float _SpecularPow;
 float _CutOff;
@@ -121,7 +121,7 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     float lightAttenuation = GetDirectionalShadowAttenuation(light.directionWS, input.positionWS);
     float3 Li = light.color * lightAttenuation;
     // E(Illuminance) : To simulate the Irradiance in BRDF
-    float3 E = Li * saturate(dot(normalWS, lightWS)) * _LightIntencity;
+    float3 E = Li * saturate(dot(normalWS, lightWS));
 
     // Specular
     float3 viewWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS);
@@ -193,7 +193,7 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
 
     // Emmision
     float4 emmisionMap = SAMPLE_TEXTURE2D(_EmissionMap, sampler_EmissionMap, uv);
-    float3 emmision = lerp(0, emmisionMap, _Emission).rgb;
+    float3 emmision = lerp(0, emmisionMap, _Emission).rgb * _EmissionColor.rgb;
 
     float3 color = lerp(Lo, envLo, _EnvWeight) * occlusionLightFactor + emmision;
 

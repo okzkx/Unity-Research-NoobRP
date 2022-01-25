@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -199,10 +198,7 @@ public class NoobRenderPipeline : RenderPipeline {
             // Set up shader properties
             context.SetupCameraProperties(camera);
 
-            var clearFlags = camera.clearFlags;
-            bool shouldClearDepth = clearFlags == CameraClearFlags.Depth;
-            bool shouldClearColor = clearFlags == CameraClearFlags.Color;
-            cmb.ClearRenderTarget(shouldClearDepth, shouldClearColor, Color.blue);
+            cmb.ClearRenderTarget(true, true, Color.clear);
 
             cmb.EndSample(DRAW_RENDERERS);
 

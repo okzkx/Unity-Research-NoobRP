@@ -52,18 +52,19 @@ Material:
     - _CutOff: 0.1
     - _Cutoff: 0.5
     - _Diffuse: 1
-    - _Emission: 0
+    - _Emission: 1
     - _EnvWeight: 0
-    - _Fresnel: 0.324
+    - _Fresnel: 0
     - _FresnelXX: 0
-    - _LightIntencity: 2
+    - _LightIntencity: 4.44
     - _Metallic: 0
     - _Occlusion: 0
     - _Roughness: 0
-    - _Smoothness: 0.558
+    - _Smoothness: 0
     - _Specular: 2
     - _SpecularPow: 90
     m_Colors:
-    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _BaseColor: {r: 0, g: 0, b: 0, a: 1}
+    - _EmissionColor: {r: 0.32225704, g: 1, b: 0, a: 1}
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

@@ -57,13 +57,14 @@ Material:
     - _Fresnel: 0.324
     - _FresnelXX: 0
     - _LightIntencity: 2
-    - _Metallic: 0
+    - _Metallic: 0.84
     - _Occlusion: 0
     - _Roughness: 0
-    - _Smoothness: 0.558
+    - _Smoothness: 1
     - _Specular: 2
     - _SpecularPow: 90
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

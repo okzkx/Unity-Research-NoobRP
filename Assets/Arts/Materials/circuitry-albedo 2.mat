@@ -60,10 +60,11 @@ Material:
     - _Metallic: 0
     - _Occlusion: 0
     - _Roughness: 0.211
-    - _Smoothness: 0.269
+    - _Smoothness: 0
     - _Specular: 2
     - _SpecularPow: 53.8
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
