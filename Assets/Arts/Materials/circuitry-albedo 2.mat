@@ -60,7 +60,7 @@ Material:
     - _Metallic: 0
     - _Occlusion: 0
     - _Roughness: 0.211
-    - _Smoothness: 1
+    - _Smoothness: 0.269
     - _Specular: 2
     - _SpecularPow: 53.8
     m_Colors:

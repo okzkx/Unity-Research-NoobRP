@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -31,10 +32,16 @@ public class NoobRenderPipeline : RenderPipeline {
         this.asset = asset;
     }
 
+    const string PREPARE_DIRECTIONAL_CASCADE_SHADOW_MAP = "Directional Light ShadowMap";
+    private const string DRAW_RENDERERS = "RenderLoop.Clear";
+    const  int directionalLightCapacity = 1;
+    const  int spotLightCapacity = 4;
+    const    int pointLightCapacity = 2;
+
     private void Render(ScriptableRenderContext context, Camera camera) {
         bool isGameCam = camera.cameraType == CameraType.Game;
 
-        CommandBuffer cmb = CommandBufferPool.Get("ToAddName");
+        CommandBuffer cmb = CommandBufferPool.Get();
 
         // Cullling
         if (!camera.TryGetCullingParameters(out ScriptableCullingParameters scp)) return;
@@ -49,28 +56,91 @@ public class NoobRenderPipeline : RenderPipeline {
         var filteringSettings = new FilteringSettings(RenderQueueRange.opaque);
 
 
-        // Light Setting
+        // Lighting Setting
         {
-            Color _DirectionalLightColor = Color.black;
-            Vector4 _DirectionalLightDirection = Vector4.zero;
-            // Directional Light
+            // Lights Setup
             {
+
+                int directionalLightCount = 0;
+                int _SpotLightCount = 0;
+                int _PointLightCount = 0;
+
+                Color _DirectionalLightColor = Color.black;
+                Vector4 _DirectionalLightDirection = Vector4.zero;
+
+                Vector4[] _LightColors = new Vector4[spotLightCapacity + pointLightCapacity];
+                Vector4[] _LightPositions = new Vector4[spotLightCapacity + pointLightCapacity];
+                Vector4[] _LightDirections = new Vector4[spotLightCapacity + pointLightCapacity];
+
                 NativeArray<VisibleLight> visibleLights = cullingResults.visibleLights;
                 foreach (var visibleLight in visibleLights) {
-                    if (visibleLight.lightType == LightType.Directional) {
-                        _DirectionalLightColor = visibleLight.finalColor;
-                        _DirectionalLightDirection = -visibleLight.localToWorldMatrix.GetColumn(2);
+                    switch (visibleLight.lightType) {
+                        case LightType.Spot:
+                            if (_SpotLightCount < spotLightCapacity) {
+                                int index = ToSpotLightIndex(_SpotLightCount);
+                                
+                                _LightColors[index] = visibleLight.finalColor;
+                                
+                                Vector4 direction = visibleLight.localToWorldMatrix.GetColumn(2);
+                                direction.w = math.radians(visibleLight.spotAngle);
+                                _LightDirections[index] = direction;
+                                
+                                Vector4 position = visibleLight.localToWorldMatrix.GetColumn(3);
+                                position.w = visibleLight.range;
+                                _LightPositions[index] = position;
+                                
+                                _SpotLightCount++;
+                            }
+
+                            break;
+                        case LightType.Directional:
+                            if (directionalLightCount < directionalLightCapacity) {
+                                _DirectionalLightColor = visibleLight.finalColor;
+                                _DirectionalLightDirection = -visibleLight.localToWorldMatrix.GetColumn(2);
+                                directionalLightCount++;
+                            }
+
+                            break;
+                        case LightType.Point:
+                            if (_PointLightCount < pointLightCapacity) {
+                               int index=   ToPointLightIndex(_PointLightCount);
+                                
+                                _LightColors[index] = visibleLight.finalColor;
+                                
+                                Vector4 position = visibleLight.localToWorldMatrix.GetColumn(3);
+                                position.w = visibleLight.range;
+                                _LightPositions[index] = position;
+                                
+                                _PointLightCount++;
+                            }
+
+                            break;
+                        case LightType.Area:
+                            break;
+                        case LightType.Disc:
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
                     }
                 }
 
                 cmb.SetGlobalColor("_DirectionalLightColor", _DirectionalLightColor);
                 cmb.SetGlobalVector("_DirectionalLightDirection", _DirectionalLightDirection);
+                
+                cmb.SetGlobalInt("_SpotLightCount", _SpotLightCount);
+                cmb.SetGlobalInt("_PointLightCount", _PointLightCount);
+                
+                cmb.SetGlobalVectorArray("_LightPositions", _LightPositions);
+                cmb.SetGlobalVectorArray("_LightColors", _LightColors);
+                cmb.SetGlobalVectorArray("_LightDirections", _LightDirections);
                 ExcuteAndClearCommandBuffer(context, cmb);
             }
 
             // Render Shadow map1
             // if (isGameCam) 
             {
+                cmb.BeginSample(PREPARE_DIRECTIONAL_CASCADE_SHADOW_MAP);
+
                 int rtSide = 1024;
                 cmb.GetTemporaryRT(dirShadowAtlasId, rtSide, rtSide,
                     32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
@@ -106,6 +176,7 @@ public class NoobRenderPipeline : RenderPipeline {
                         cullingSpheres[splitIndex] = shadowSplitData.cullingSphere;
 
                         ShadowDrawingSettings shadowDrawingSettings = new ShadowDrawingSettings(cullingResults, activeLightIndex);
+
                         shadowDrawingSettings.splitData = shadowSplitData;
                         context.DrawShadows(ref shadowDrawingSettings);
                     }
@@ -113,7 +184,9 @@ public class NoobRenderPipeline : RenderPipeline {
                     cmb.SetGlobalMatrixArray("_DirectionalShadowMatrices", dirShadowMatrices);
                     cmb.SetGlobalVectorArray("_CullingSpheres", cullingSpheres);
                 }
-                
+
+                cmb.EndSample(PREPARE_DIRECTIONAL_CASCADE_SHADOW_MAP);
+
                 ExcuteAndClearCommandBuffer(context, cmb);
             }
         }
@@ -121,6 +194,8 @@ public class NoobRenderPipeline : RenderPipeline {
         // Render Renderers
         // if (false) 
         {
+            cmb.BeginSample(DRAW_RENDERERS);
+
             // Set up shader properties
             context.SetupCameraProperties(camera);
 
@@ -128,9 +203,14 @@ public class NoobRenderPipeline : RenderPipeline {
             bool shouldClearDepth = clearFlags == CameraClearFlags.Depth;
             bool shouldClearColor = clearFlags == CameraClearFlags.Color;
             cmb.ClearRenderTarget(shouldClearDepth, shouldClearColor, Color.blue);
+
+            cmb.EndSample(DRAW_RENDERERS);
+
             ExcuteAndClearCommandBuffer(context, cmb);
 
             // Draw opaque
+            cmb.BeginSample(DRAW_RENDERERS);
+
             sortingSettings.criteria = SortingCriteria.CommonOpaque;
             drawingSettings.sortingSettings = sortingSettings;
             drawingSettings.perObjectData =
@@ -149,6 +229,7 @@ public class NoobRenderPipeline : RenderPipeline {
             drawingSettings.sortingSettings = sortingSettings;
             filteringSettings.renderQueueRange = RenderQueueRange.transparent;
             context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
+            cmb.BeginSample(DRAW_RENDERERS);
         }
 
         EndRender(context, cmb);
@@ -181,4 +262,14 @@ public class NoobRenderPipeline : RenderPipeline {
 
         return m;
     }
+
+    int ToSpotLightIndex(int index) {
+        return index;
+    }
+
+    int ToPointLightIndex(int index)
+    {
+        return index + spotLightCapacity;
+    }
+
 }

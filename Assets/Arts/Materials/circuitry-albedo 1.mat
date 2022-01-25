@@ -52,15 +52,15 @@ Material:
     - _CutOff: 0.1
     - _Cutoff: 0.5
     - _Diffuse: 1
-    - _Emission: 0.516
-    - _EnvWeight: 0.382
+    - _Emission: 0.523
+    - _EnvWeight: 0.593
     - _Fresnel: 0
     - _FresnelXX: 0
     - _LightIntencity: 4
-    - _Metallic: 0.437
+    - _Metallic: 0.73
     - _Occlusion: 0
     - _Roughness: 0.413
-    - _Smoothness: 0.371
+    - _Smoothness: 0.648
     - _Specular: 2
     - _SpecularPow: 53.6
     m_Colors:

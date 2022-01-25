@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: circuitry-albedo
+  m_Name: PointLightGreen
   m_Shader: {fileID: 4800000, guid: 1ee4b5ab8417365449bc383d80e18804, type: 3}
   m_ShaderKeywords: _DIFFUSE_HALF_LAMBERT _SPECULAR_BLING_PHONE
   m_LightmapFlags: 4

@@ -44,7 +44,7 @@ float _LightIntencity;
 float4 _BaseColor;
 float _SpecularPow;
 float _CutOff;
-float _Roughness; 
+float _Roughness;
 float _EnvWeight;
 float _Metallic; // Fresnel effect
 float _Occlusion;
@@ -90,6 +90,11 @@ float4 Debug(float3 f)
     return float4(f, 1);
 }
 
+float4 Debug(float4 f)
+{
+    return f;
+}
+
 float4 Frag(VaryingsMeshToPS input): SV_Target0
 {
     float2 uv = input.texCoord0;
@@ -97,15 +102,18 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     float3 lightWS = normalize(light.directionWS);
     float4 maskMap = SAMPLE_TEXTURE2D(_MaskMap, sampler_MaskMap, uv);
 
-    float metallic = lerp(0, maskMap.r, _Metallic);
-    float occlusion = lerp(0, maskMap.g, _Occlusion);
-    float smoothness = lerp(0, maskMap.a, _Smoothness);
+    float metallic = lerp(0.01, maskMap.r, _Metallic);
+    float occlusion = lerp(0.01, maskMap.g, _Occlusion);
+    float smoothness = lerp(0.01, maskMap.a, _Smoothness);
 
     float occlusionLightFactor = 1 - occlusion;
 
     float3x3 tangentToWorld = CreateTangentToWorld(input.normalWS, input.tangentWS.xyz, 1);
     float3 normalTS = DecodeNormal(SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, uv), 1);
     float3 normalWS = TransformTangentToWorld(normalTS, tangentToWorld);
+    float3 position = input.positionWS;
+
+    float3 Lo = 0;
 
     // Directional Light BRDF
 
@@ -132,7 +140,47 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     specular *= lerp(1, fresnelFactor, metallic);
 
     // Resolve render equation in fake brdf
-    float3 Lo = (albedo.xyz / PI + specular) * E;
+    float3 DirectionalLo = (albedo.xyz / PI + specular) * E;
+    Lo += DirectionalLo;
+
+    // SpotLight
+
+    for (int i = 0; i < _SpotLightCount; i++)
+    {
+        SpotLight spotLight = CreateSpotLight(i);
+        float3 lightPosToFaceDir = normalize(position - spotLight.position);
+        float3 lightDir = -lightPosToFaceDir;
+        float spotLightAttenuation = 1 - saturate( distance(position, spotLight.position) / spotLight.range);
+        float3 lightColor = spotLight.color * spotLightAttenuation;
+        float minAngleCos = cos(spotLight.angle);
+        float angleCos = dot(lightPosToFaceDir, spotLight.direction);
+        float lightArea = Smoothstep01(saturate(100 * (angleCos - minAngleCos)));
+        float3 spotLightE =  saturate(dot(normalWS, lightDir)) * lightColor;
+
+        float3 halfVL = normalize(viewWS + lightDir);
+        float specularFactorSL = pow(max(0.0, dot(normalWS, halfVL)), specularPow);
+        float3 specularSL = specularFactorSL * lightColor * smoothness;
+        
+        Lo += lightArea * (albedo.xyz / PI + specularSL) * spotLightE;
+    }
+
+    for (int i = 0; i < _PointLightCount; i++)
+    {
+        PointLight pointLight = CreatePointLight(i);
+        float3 lightPosToFaceDir = normalize(position - pointLight.position);
+        float3 lightDir = -lightPosToFaceDir;
+        float pointLightAttenuation = 1 - saturate( distance(position, pointLight.position) / pointLight.range);
+        float3 lightColor = pointLight.color * pointLightAttenuation;
+        float3 pointLightE =  saturate(dot(normalWS, lightDir)) * lightColor;
+
+        float3 halfVL = normalize(viewWS + lightDir);
+        float specularFactorSL = pow(saturate(dot(normalWS, halfVL)), specularPow);
+        float3 specularSL = specularFactorSL * lightColor * smoothness;
+
+        // return Debug(specularSL);
+        
+        Lo += (albedo.xyz / PI + specularSL) * pointLightE;
+    }
 
     // Environment Light
 
