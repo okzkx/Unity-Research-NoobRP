@@ -224,8 +224,7 @@ public class NoobRenderPipeline : RenderPipeline {
                 int spotLightCount = 0;
                 int pointLightCount = 0;
 
-                Matrix4x4[] _WorldToShadowMapCoordMatrices = new Matrix4x4[6];
-
+                Matrix4x4[] _WorldToShadowMapCoordMatrices = new Matrix4x4[16];
 
                 NativeArray<VisibleLight> visibleLights = cullingResults.visibleLights;
                 for (int lightIndex = 0; lightIndex < visibleLights.Length; lightIndex++) {
@@ -238,7 +237,7 @@ public class NoobRenderPipeline : RenderPipeline {
                             cullingResults.ComputeSpotShadowMatricesAndCullingPrimitives(lightIndex,
                                 out Matrix4x4 viewMatrix, out Matrix4x4 projMatrix, out ShadowSplitData shadowSplitData);
 
-                            Rect viewPort = GetSpotShadowMapViewport(spotLightCount, tileWidth);
+                            Rect viewPort = GetSpotShadowMapViewport(spotLightCount, sideSplitCount, tileWidth);
                             Matrix4x4 worldToShadowMapCoordMatrix = CreateWorldToShadowMapCoordMatrix(viewMatrix, projMatrix, viewPort);
                             _WorldToShadowMapCoordMatrices[spotLightCount] = worldToShadowMapCoordMatrix;
 
@@ -255,15 +254,16 @@ public class NoobRenderPipeline : RenderPipeline {
                     }
 
                     if (visibleLights[lightIndex].lightType == LightType.Point) {
-                        if (pointLightCount < spotLightCapacity) {
-                            int faceCount = 6;
+                        if (pointLightCount < pointLightCapacity) {
+                            const int faceCount = 6;
                             for (int faceIndex = 0; faceIndex < faceCount; faceIndex++) {
                                 cullingResults.ComputePointShadowMatricesAndCullingPrimitives(lightIndex, (CubemapFace) faceIndex,
                                     0, out Matrix4x4 viewMatrix, out Matrix4x4 projMatrix, out ShadowSplitData shadowSplitData);
 
-                                Rect viewPort = GetSpotShadowMapViewport(spotLightCapacity + pointLightCount * faceCount + faceIndex, tileWidth);
+                                int tileIndex = spotLightCapacity + pointLightCount * faceCount + faceIndex;
+                                Rect viewPort = GetSpotShadowMapViewport(tileIndex, sideSplitCount, tileWidth);
                                 Matrix4x4 worldToShadowMapCoordMatrix = CreateWorldToShadowMapCoordMatrix(viewMatrix, projMatrix, viewPort);
-                                _WorldToShadowMapCoordMatrices[spotLightCount] = worldToShadowMapCoordMatrix;
+                                _WorldToShadowMapCoordMatrices[tileIndex] = worldToShadowMapCoordMatrix;
 
                                 cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
                                 cmb.SetViewport(viewPort);
@@ -273,8 +273,9 @@ public class NoobRenderPipeline : RenderPipeline {
                                 };
 
                                 context.DrawShadows(ref shadowDrawingSettings);
-                                pointLightCount++;
                             }
+
+                            pointLightCount++;
                         }
                     }
                 }
@@ -349,8 +350,11 @@ public class NoobRenderPipeline : RenderPipeline {
         return vp;
     }
 
-    private Rect GetSpotShadowMapViewport(int i, int tileWidth) {
-        return new Rect(i * tileWidth, 0, tileWidth, tileWidth);
+    private Rect GetSpotShadowMapViewport(int i, int sideSplitCount, int tileWidth) {
+        int rowIndex = i / sideSplitCount;
+        int colIndex = i % sideSplitCount;
+
+        return new Rect(colIndex * tileWidth, rowIndex * tileWidth, tileWidth, tileWidth);
     }
 
     private static void ExcuteAndClearCommandBuffer(ScriptableRenderContext context, CommandBuffer cmb) {

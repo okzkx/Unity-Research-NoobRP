@@ -170,8 +170,9 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
         PointLight pointLight = CreatePointLight(i);
         float3 lightPosToFaceDir = normalize(position - pointLight.position);
         float3 lightDir = -lightPosToFaceDir;
+        float shadowAttenuation = GetPointShadowAttenuation(i, position, lightDir);
         float pointLightAttenuation = 1 - saturate( distance(position, pointLight.position) / pointLight.range);
-        float3 lightColor = pointLight.color * pointLightAttenuation;
+        float3 lightColor = pointLight.color * pointLightAttenuation * shadowAttenuation;
         float3 pointLightE =  saturate(dot(normalWS, lightDir)) * lightColor;
 
         float3 halfVL = normalize(viewWS + lightDir);

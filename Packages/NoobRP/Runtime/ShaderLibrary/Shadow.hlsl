@@ -37,7 +37,6 @@ float SampleShadowAuttenuation(Texture2D atlas, float3 positionSTS)
     }
     return shadow;
     #endif
-    
 }
 
 float GetDirectionalShadowAttenuation(float3 lightDirWS, float3 positionWS)
@@ -58,7 +57,7 @@ float GetDirectionalShadowAttenuation(float3 lightDirWS, float3 positionWS)
     return SampleShadowAuttenuation(_DirectionalShadowAtlas, positionSTS);
 }
 
-float4x4 _WorldToShadowMapCoordMatrices[6];
+float4x4 _WorldToShadowMapCoordMatrices[16];
 
 TEXTURE2D_SHADOW(_SpotPointShadowAtlas);
 
@@ -70,6 +69,66 @@ float GetSpotShadowAttenuation(int index, float3 positionWS, float3 lightDir)
     // -1 ~ 1 => -0.5 ~ 0.5
     // -0.5 ~ 0.5 => 0 ~ 0.25
     positionSTS.xy = (positionSTS.xy * 0.5 + 0.5) * 0.25 + float2(0.25 * index, 0);
+    positionSTS.z = positionSTS.z * 0.5 + 0.5;
+
+    return SampleShadowAuttenuation(_SpotPointShadowAtlas, positionSTS);
+}
+
+float GetPointShadowAttenuation(int pointLightIndex, float3 positionWS, float3 lightDir)
+{
+    float3 lightToPosDir = -lightDir;
+    int faceIndex = 0;
+    float absX = abs(lightToPosDir.x);
+    float absY = abs(lightToPosDir.y);
+    float absZ = abs(lightToPosDir.z);
+
+    if (absX >= absY && absX >= absZ)
+    {
+        if (lightToPosDir.x >= 0)
+        {
+            faceIndex = 0;
+        }
+        else
+        {
+            faceIndex = 1;
+        }
+    }
+
+    if (absY >= absX && absY >= absZ)
+    {
+        if (lightToPosDir.y >= 0)
+        {
+            faceIndex = 2;
+        }
+        else
+        {
+            faceIndex = 3;
+        }
+    }
+
+    if (absZ >= absX && absZ >= absY)
+    {
+        if (lightToPosDir.z >= 0)
+        {
+            faceIndex = 4;
+        }
+        else
+        {
+            faceIndex = 5;
+        }
+    }
+
+    positionWS += lightDir * SHADOW_BIAS;
+    int tileIndex = 4 + pointLightIndex * 6 + faceIndex;
+    float4 positionSTS = mul(_WorldToShadowMapCoordMatrices[tileIndex], float4(positionWS, 1.0));
+    positionSTS = positionSTS / positionSTS.w;
+
+    int colIndex = tileIndex % 4;
+    int rowIndex = tileIndex / 4;
+
+    // -1 ~ 1 => -0.5 ~ 0.5
+    // -0.5 ~ 0.5 => 0 ~ 0.25
+    positionSTS.xy = (positionSTS.xy * 0.5 + 0.5) * 0.25 + float2(0.25 * colIndex, 0.25 * rowIndex);
     positionSTS.z = positionSTS.z * 0.5 + 0.5;
 
     return SampleShadowAuttenuation(_SpotPointShadowAtlas, positionSTS);
