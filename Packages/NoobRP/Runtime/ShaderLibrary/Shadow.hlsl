@@ -15,6 +15,31 @@ SAMPLER_CMP(SHADOW_SAMPLER);
 float4 _CullingSpheres[SPLIT_COUNT];
 
 
+float SampleShadowAuttenuation(Texture2D atlas, float3 positionSTS)
+{
+    #if defined(HARD_SHADOW)
+    return SAMPLE_TEXTURE2D_SHADOW(atlas, SHADOW_SAMPLER, positionSTS);
+    #else
+
+    float4 size = float4(1 / (float)1024, 1 / (float)1024, 1024, 1024);
+
+    float weights[TENT_SAMEPLE_COUNT];
+    float2 positions[TENT_SAMEPLE_COUNT];
+
+    SampleShadow_ComputeSamples_Tent_7x7(size, positionSTS.xy, weights, positions);
+
+    float shadow = 0;
+    for (int i = 0; i < TENT_SAMEPLE_COUNT; i++)
+    {
+        float3 coord3 = float3(positions[i], positionSTS.z);
+        float value = SAMPLE_TEXTURE2D_SHADOW(atlas, SHADOW_SAMPLER, coord3);
+        shadow += weights[i] * value;
+    }
+    return shadow;
+    #endif
+    
+}
+
 float GetDirectionalShadowAttenuation(float3 lightDirWS, float3 positionWS)
 {
     int index;
@@ -30,27 +55,24 @@ float GetDirectionalShadowAttenuation(float3 lightDirWS, float3 positionWS)
 
     positionWS += lightDirWS * SHADOW_BIAS;
     float3 positionSTS = mul(_DirectionalShadowMatrices[index], float4(positionWS, 1.0)).xyz;
+    return SampleShadowAuttenuation(_DirectionalShadowAtlas, positionSTS);
+}
 
-    #if defined(HARD_SHADOW)
-    return SAMPLE_TEXTURE2D_SHADOW(_DirectionalShadowAtlas, SHADOW_SAMPLER, positionSTS);
-    #else
+float4x4 _WorldToShadowMapCoordMatrices[6];
 
-    float4 size = float4(1 / (float)1024, 1 / (float)1024, 1024, 1024);
+TEXTURE2D_SHADOW(_SpotPointShadowAtlas);
 
-    float weights[TENT_SAMEPLE_COUNT];
-    float2 positions[TENT_SAMEPLE_COUNT];
+float GetSpotShadowAttenuation(int index, float3 positionWS, float3 lightDir)
+{
+    positionWS += lightDir * SHADOW_BIAS;
+    float4 positionSTS = mul(_WorldToShadowMapCoordMatrices[index], float4(positionWS, 1.0));
+    positionSTS = positionSTS / positionSTS.w;
+    // -1 ~ 1 => -0.5 ~ 0.5
+    // -0.5 ~ 0.5 => 0 ~ 0.25
+    positionSTS.xy = (positionSTS.xy * 0.5 + 0.5) * 0.25 + float2(0.25 * index, 0);
+    positionSTS.z = positionSTS.z * 0.5 + 0.5;
 
-    SampleShadow_ComputeSamples_Tent_7x7(size, positionSTS.xy, weights, positions);
-
-    float shadow = 0;
-    for (int i = 0; i < TENT_SAMEPLE_COUNT; i++)
-    {
-        float3 coord3 = float3(positions[i], positionSTS.z);
-        float value = SAMPLE_TEXTURE2D_SHADOW(_DirectionalShadowAtlas, SHADOW_SAMPLER, coord3);
-        shadow += weights[i] * value;
-    }
-    return shadow;
-    #endif
+    return SampleShadowAuttenuation(_SpotPointShadowAtlas, positionSTS);
 }
 
 #endif

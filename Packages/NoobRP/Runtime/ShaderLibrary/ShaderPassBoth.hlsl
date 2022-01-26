@@ -150,9 +150,10 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
         SpotLight spotLight = CreateSpotLight(i);
         float3 lightPosToFaceDir = normalize(position - spotLight.position);
         float3 lightDir = -lightPosToFaceDir;
+        float shadowAttenuation = GetSpotShadowAttenuation(i, position, lightDir);
         float spotLightAttenuation = 1 - saturate( distance(position, spotLight.position) / spotLight.range);
-        float3 lightColor = spotLight.color * spotLightAttenuation;
-        float minAngleCos = cos(spotLight.angle);
+        float3 lightColor = spotLight.color * spotLightAttenuation * shadowAttenuation;
+        float minAngleCos = cos(spotLight.angle * 0.5); // * 0.5 is hack for shadowMap
         float angleCos = dot(lightPosToFaceDir, spotLight.direction);
         float lightArea = Smoothstep01(saturate(100 * (angleCos - minAngleCos)));
         float3 spotLightE =  saturate(dot(normalWS, lightDir)) * lightColor;

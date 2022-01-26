@@ -27,15 +27,19 @@ public class NoobRenderPipeline : RenderPipeline {
     static readonly int dirShadowAtlasId = Shader.PropertyToID("_DirectionalShadowAtlas");
     static readonly int shadowAtlasSizeId = Shader.PropertyToID("_ShadowAtlasSize");
 
+    static readonly int _SpotPointShadowAtlas = Shader.PropertyToID("_SpotPointShadowAtlas");
+
+
     public NoobRenderPipeline(NoobRenderPipelineAsset asset) {
         this.asset = asset;
     }
 
-    const string PREPARE_DIRECTIONAL_CASCADE_SHADOW_MAP = "Directional Light ShadowMap";
+    const string DIRECTIONAL_SHADOW_MAP = "Directional Light ShadowMap";
+    const string SPOT_POINT_SHADOW_MAP = "Spot Point Light ShadowMap";
     private const string DRAW_RENDERERS = "RenderLoop.Clear";
-    const  int directionalLightCapacity = 1;
-    const  int spotLightCapacity = 4;
-    const    int pointLightCapacity = 2;
+    const int directionalLightCapacity = 1;
+    const int spotLightCapacity = 4;
+    const int pointLightCapacity = 2;
 
     private void Render(ScriptableRenderContext context, Camera camera) {
         bool isGameCam = camera.cameraType == CameraType.Game;
@@ -59,7 +63,6 @@ public class NoobRenderPipeline : RenderPipeline {
         {
             // Lights Setup
             {
-
                 int directionalLightCount = 0;
                 int _SpotLightCount = 0;
                 int _PointLightCount = 0;
@@ -77,17 +80,17 @@ public class NoobRenderPipeline : RenderPipeline {
                         case LightType.Spot:
                             if (_SpotLightCount < spotLightCapacity) {
                                 int index = ToSpotLightIndex(_SpotLightCount);
-                                
+
                                 _LightColors[index] = visibleLight.finalColor;
-                                
+
                                 Vector4 direction = visibleLight.localToWorldMatrix.GetColumn(2);
                                 direction.w = math.radians(visibleLight.spotAngle);
                                 _LightDirections[index] = direction;
-                                
+
                                 Vector4 position = visibleLight.localToWorldMatrix.GetColumn(3);
                                 position.w = visibleLight.range;
                                 _LightPositions[index] = position;
-                                
+
                                 _SpotLightCount++;
                             }
 
@@ -102,14 +105,14 @@ public class NoobRenderPipeline : RenderPipeline {
                             break;
                         case LightType.Point:
                             if (_PointLightCount < pointLightCapacity) {
-                               int index=   ToPointLightIndex(_PointLightCount);
-                                
+                                int index = ToPointLightIndex(_PointLightCount);
+
                                 _LightColors[index] = visibleLight.finalColor;
-                                
+
                                 Vector4 position = visibleLight.localToWorldMatrix.GetColumn(3);
                                 position.w = visibleLight.range;
                                 _LightPositions[index] = position;
-                                
+
                                 _PointLightCount++;
                             }
 
@@ -125,34 +128,43 @@ public class NoobRenderPipeline : RenderPipeline {
 
                 cmb.SetGlobalColor("_DirectionalLightColor", _DirectionalLightColor);
                 cmb.SetGlobalVector("_DirectionalLightDirection", _DirectionalLightDirection);
-                
+
                 cmb.SetGlobalInt("_SpotLightCount", _SpotLightCount);
                 cmb.SetGlobalInt("_PointLightCount", _PointLightCount);
-                
+
                 cmb.SetGlobalVectorArray("_LightPositions", _LightPositions);
                 cmb.SetGlobalVectorArray("_LightColors", _LightColors);
                 cmb.SetGlobalVectorArray("_LightDirections", _LightDirections);
                 ExcuteAndClearCommandBuffer(context, cmb);
             }
 
-            // Render Shadow map1
+            cmb.BeginSample("ShadowMap");
+
+            // Render Directianl Light ShadowMap
             // if (isGameCam) 
             {
-                cmb.BeginSample(PREPARE_DIRECTIONAL_CASCADE_SHADOW_MAP);
+                cmb.BeginSample(DIRECTIONAL_SHADOW_MAP);
 
-                int rtSide = 1024;
-                cmb.GetTemporaryRT(dirShadowAtlasId, rtSide, rtSide,
+                int rtWidth = 1024;
+                cmb.GetTemporaryRT(dirShadowAtlasId, rtWidth, rtWidth,
                     32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
                 cmb.SetRenderTarget(dirShadowAtlasId,
                     RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
                 cmb.ClearRenderTarget(true, false, Color.clear);
 
-                int activeLightIndex = 0;
+                int lightIndex = -1;
 
-                if (cullingResults.GetShadowCasterBounds(activeLightIndex, out Bounds bounds)) {
+                NativeArray<VisibleLight> visibleLights = cullingResults.visibleLights;
+                for (int i = 0; i < visibleLights.Length; i++) {
+                    if (visibleLights[i].lightType == LightType.Directional) {
+                        lightIndex = i;
+                    }
+                }
+
+                if (lightIndex >= 0 && cullingResults.GetShadowCasterBounds(lightIndex, out Bounds bounds)) {
                     int sideSplitCount = 2;
                     int splitCount = sideSplitCount * sideSplitCount;
-                    int shadowResolution = rtSide / sideSplitCount;
+                    int tileWidth = rtWidth / sideSplitCount;
                     float shadowNearPlaneOffset = 0.003f;
                     Matrix4x4[] dirShadowMatrices = new Matrix4x4[splitCount];
                     Vector4[] cullingSpheres = new Vector4[splitCount];
@@ -160,12 +172,15 @@ public class NoobRenderPipeline : RenderPipeline {
 
                     for (int splitIndex = 0; splitIndex < splitCount; splitIndex++) {
                         cullingResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(
-                            activeLightIndex, splitIndex, splitCount, splitRatio, shadowResolution,
+                            lightIndex, splitIndex, splitCount, splitRatio, tileWidth,
                             shadowNearPlaneOffset, out Matrix4x4 viewMatrix,
                             out Matrix4x4 projMatrix, out ShadowSplitData shadowSplitData
                         );
 
-                        Vector2 offset = SetTileViewport(cmb, splitIndex, sideSplitCount, shadowResolution);
+
+                        Vector2 offset = new Vector2(splitIndex % sideSplitCount, splitIndex / sideSplitCount);
+                        Rect viewPort = new Rect(offset.x * tileWidth, offset.y * tileWidth, tileWidth, tileWidth);
+                        cmb.SetViewport(viewPort);
 
                         dirShadowMatrices[splitIndex] = ConvertToAtlasMatrix(projMatrix * viewMatrix, offset, sideSplitCount);
                         // cmb.SetGlobalVector(shadowAtlasSizeId, new Vector4(atlasSize, 1f / atlasSize));
@@ -174,9 +189,10 @@ public class NoobRenderPipeline : RenderPipeline {
 
                         cullingSpheres[splitIndex] = shadowSplitData.cullingSphere;
 
-                        ShadowDrawingSettings shadowDrawingSettings = new ShadowDrawingSettings(cullingResults, activeLightIndex);
+                        ShadowDrawingSettings shadowDrawingSettings = new ShadowDrawingSettings(cullingResults, lightIndex) {
+                            splitData = shadowSplitData
+                        };
 
-                        shadowDrawingSettings.splitData = shadowSplitData;
                         context.DrawShadows(ref shadowDrawingSettings);
                     }
 
@@ -184,10 +200,93 @@ public class NoobRenderPipeline : RenderPipeline {
                     cmb.SetGlobalVectorArray("_CullingSpheres", cullingSpheres);
                 }
 
-                cmb.EndSample(PREPARE_DIRECTIONAL_CASCADE_SHADOW_MAP);
+                cmb.EndSample(DIRECTIONAL_SHADOW_MAP);
 
                 ExcuteAndClearCommandBuffer(context, cmb);
             }
+
+            // Render Spot and Point Light ShadowMap
+            // if (false) 
+            {
+                cmb.BeginSample(SPOT_POINT_SHADOW_MAP);
+
+                int rtWidth = 1024;
+                cmb.GetTemporaryRT(_SpotPointShadowAtlas, rtWidth, rtWidth,
+                    32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
+                cmb.SetRenderTarget(_SpotPointShadowAtlas,
+                    RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+                cmb.ClearRenderTarget(true, false, Color.clear);
+
+                int sideSplitCount = 4;
+                int splitCount = sideSplitCount * sideSplitCount;
+                int tileWidth = rtWidth / sideSplitCount;
+
+                int spotLightCount = 0;
+                int pointLightCount = 0;
+
+                Matrix4x4[] _WorldToShadowMapCoordMatrices = new Matrix4x4[6];
+
+
+                NativeArray<VisibleLight> visibleLights = cullingResults.visibleLights;
+                for (int lightIndex = 0; lightIndex < visibleLights.Length; lightIndex++) {
+                    if (!cullingResults.GetShadowCasterBounds(lightIndex, out Bounds outBounds)) {
+                        continue;
+                    }
+
+                    if (visibleLights[lightIndex].lightType == LightType.Spot) {
+                        if (spotLightCount < spotLightCapacity) {
+                            cullingResults.ComputeSpotShadowMatricesAndCullingPrimitives(lightIndex,
+                                out Matrix4x4 viewMatrix, out Matrix4x4 projMatrix, out ShadowSplitData shadowSplitData);
+
+                            Rect viewPort = GetSpotShadowMapViewport(spotLightCount, tileWidth);
+                            Matrix4x4 worldToShadowMapCoordMatrix = CreateWorldToShadowMapCoordMatrix(viewMatrix, projMatrix, viewPort);
+                            _WorldToShadowMapCoordMatrices[spotLightCount] = worldToShadowMapCoordMatrix;
+
+                            cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
+                            cmb.SetViewport(viewPort);
+                            ExcuteAndClearCommandBuffer(context, cmb);
+                            ShadowDrawingSettings shadowDrawingSettings = new ShadowDrawingSettings(cullingResults, lightIndex) {
+                                splitData = shadowSplitData
+                            };
+
+                            context.DrawShadows(ref shadowDrawingSettings);
+                            spotLightCount++;
+                        }
+                    }
+
+                    if (visibleLights[lightIndex].lightType == LightType.Point) {
+                        if (pointLightCount < spotLightCapacity) {
+                            int faceCount = 6;
+                            for (int faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+                                cullingResults.ComputePointShadowMatricesAndCullingPrimitives(lightIndex, (CubemapFace) faceIndex,
+                                    0, out Matrix4x4 viewMatrix, out Matrix4x4 projMatrix, out ShadowSplitData shadowSplitData);
+
+                                Rect viewPort = GetSpotShadowMapViewport(spotLightCapacity + pointLightCount * faceCount + faceIndex, tileWidth);
+                                Matrix4x4 worldToShadowMapCoordMatrix = CreateWorldToShadowMapCoordMatrix(viewMatrix, projMatrix, viewPort);
+                                _WorldToShadowMapCoordMatrices[spotLightCount] = worldToShadowMapCoordMatrix;
+
+                                cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
+                                cmb.SetViewport(viewPort);
+                                ExcuteAndClearCommandBuffer(context, cmb);
+                                ShadowDrawingSettings shadowDrawingSettings = new ShadowDrawingSettings(cullingResults, lightIndex) {
+                                    splitData = shadowSplitData
+                                };
+
+                                context.DrawShadows(ref shadowDrawingSettings);
+                                pointLightCount++;
+                            }
+                        }
+                    }
+                }
+
+                cmb.SetGlobalMatrixArray("_WorldToShadowMapCoordMatrices", _WorldToShadowMapCoordMatrices);
+
+                cmb.EndSample(SPOT_POINT_SHADOW_MAP);
+
+                ExcuteAndClearCommandBuffer(context, cmb);
+            }
+
+            cmb.EndSample("ShadowMap");
         }
 
         // Render Renderers
@@ -231,11 +330,27 @@ public class NoobRenderPipeline : RenderPipeline {
         EndRender(context, cmb);
     }
 
-    static Vector2 SetTileViewport(CommandBuffer buffer, int index, int side, float tileSize) {
-        Vector2Int offset = new Vector2Int(index % side, index / side);
-        Rect viewPort = new Rect(offset.x * tileSize, offset.y * tileSize, tileSize, tileSize);
-        buffer.SetViewport(viewPort);
-        return offset;
+    private Matrix4x4 CreateWorldToShadowMapCoordMatrix(Matrix4x4 viewMatrix, Matrix4x4 projMatrix, Rect viewPort) {
+        Matrix4x4 vp = projMatrix * viewMatrix;
+
+        if (SystemInfo.usesReversedZBuffer) {
+            vp.SetRow(2, -vp.GetRow(2));
+        }
+
+        // Vector2 position = viewPort.position / 1024;
+        // Vector2 side = new Vector2(viewPort.width, viewPort.height)  / 1024;
+        //
+        // float3 scale = math.float3(0.5f * side.x, 0.5f * side.y, 1);
+        // Matrix4x4 m = Matrix4x4.Scale(scale) * vp;
+        // m = Matrix4x4.Translate(math.float3(scale.x + position.x, scale.y + position.y, 0)) * m;
+        //
+        // return m;
+
+        return vp;
+    }
+
+    private Rect GetSpotShadowMapViewport(int i, int tileWidth) {
+        return new Rect(i * tileWidth, 0, tileWidth, tileWidth);
     }
 
     private static void ExcuteAndClearCommandBuffer(ScriptableRenderContext context, CommandBuffer cmb) {
@@ -263,9 +378,7 @@ public class NoobRenderPipeline : RenderPipeline {
         return index;
     }
 
-    int ToPointLightIndex(int index)
-    {
+    int ToPointLightIndex(int index) {
         return index + spotLightCapacity;
     }
-
 }
