@@ -338,9 +338,21 @@ public class NoobRenderPipeline : RenderPipeline {
         }
 
         {
+#if UNITY_EDITOR
+            if (UnityEditor.Handles.ShouldRenderGizmos()) {
+                context.DrawGizmos(camera, GizmoSubset.PreImageEffects);
+            }
+#endif
+            
             cmb.BeginSample("Post-Process");
             cmb.Blit(frameBufferId, BuiltinRenderTextureType.CameraTarget);
             cmb.EndSample("Post-Process");
+            
+#if UNITY_EDITOR
+            if (UnityEditor.Handles.ShouldRenderGizmos()) {
+                context.DrawGizmos(camera, GizmoSubset.PostImageEffects);
+            }
+#endif
             ExcuteAndClearCommandBuffer(context, cmb);
         }
 
