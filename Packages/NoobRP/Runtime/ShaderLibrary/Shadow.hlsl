@@ -35,7 +35,7 @@ float SampleShadowAuttenuation(Texture2D atlas, float3 positionSTS)
         float value = SAMPLE_TEXTURE2D_SHADOW(atlas, SHADOW_SAMPLER, coord3);
         shadow += weights[i] * value;
     }
-    return shadow;
+    return saturate(shadow) ;
     #endif
 }
 

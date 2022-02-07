@@ -85,6 +85,11 @@ VaryingsMeshToPS Vert(AttributesMesh inputMesh)
     return varyings;
 }
 
+float4 Debug(float f)
+{
+    return float4(f,f,f, 1);
+}
+
 float4 Debug(float3 f)
 {
     return float4(f, 1);
@@ -178,8 +183,6 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
         float3 halfVL = normalize(viewWS + lightDir);
         float specularFactorSL = pow(saturate(dot(normalWS, halfVL)), specularPow);
         float3 specularSL = specularFactorSL * lightColor * smoothness;
-
-        // return Debug(specularSL);
         
         Lo += (albedo.xyz / PI + specularSL) * pointLightE;
     }
