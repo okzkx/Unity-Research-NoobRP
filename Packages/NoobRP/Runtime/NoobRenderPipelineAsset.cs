@@ -25,9 +25,9 @@ public class NoobRenderPipeline : RenderPipeline {
     private static readonly ShaderTagId NoobRPLightMode = new ShaderTagId("Both");
 
     static readonly int dirShadowAtlasId = Shader.PropertyToID("_DirectionalShadowAtlas");
-    static readonly int shadowAtlasSizeId = Shader.PropertyToID("_ShadowAtlasSize");
 
     static readonly int _SpotPointShadowAtlas = Shader.PropertyToID("_SpotPointShadowAtlas");
+    static int frameBufferId = Shader.PropertyToID("_CameraFrameBuffer");
 
 
     public NoobRenderPipeline(NoobRenderPipelineAsset asset) {
@@ -298,6 +298,15 @@ public class NoobRenderPipeline : RenderPipeline {
             // Set up shader properties
             context.SetupCameraProperties(camera);
 
+            cmb.GetTemporaryRT(
+                frameBufferId, camera.pixelWidth, camera.pixelHeight,
+                32, FilterMode.Bilinear, RenderTextureFormat.Default
+            );
+            cmb.SetRenderTarget(
+                frameBufferId,
+                RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store
+            );
+
             cmb.ClearRenderTarget(true, true, Color.clear);
 
             cmb.EndSample(DRAW_RENDERERS);
@@ -325,7 +334,14 @@ public class NoobRenderPipeline : RenderPipeline {
             drawingSettings.sortingSettings = sortingSettings;
             filteringSettings.renderQueueRange = RenderQueueRange.transparent;
             context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
-            cmb.BeginSample(DRAW_RENDERERS);
+            cmb.EndSample(DRAW_RENDERERS);
+        }
+
+        {
+            cmb.BeginSample("Post-Process");
+            cmb.Blit(frameBufferId, BuiltinRenderTextureType.CameraTarget);
+            cmb.EndSample("Post-Process");
+            ExcuteAndClearCommandBuffer(context, cmb);
         }
 
         EndRender(context, cmb);
@@ -363,6 +379,9 @@ public class NoobRenderPipeline : RenderPipeline {
     }
 
     private static void EndRender(ScriptableRenderContext context, CommandBuffer cmb) {
+        cmb.ReleaseTemporaryRT(dirShadowAtlasId);
+        cmb.ReleaseTemporaryRT(_SpotPointShadowAtlas);
+        cmb.ReleaseTemporaryRT(frameBufferId);
         context.Submit();
         cmb.Release();
     }
