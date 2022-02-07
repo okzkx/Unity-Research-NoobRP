@@ -16,15 +16,15 @@
    4. Reflection
       1. SkyBox Reflection ✔
       2. Probe Reflection✔
-   5. Complex
+   5. Complex ✔
 3. Shadow
    1. Hard ✔
    2. Cascade ✔
    3. Soft
       1. PCF ✔
 4. Lights
-   1. Point
-   2. Spot
+   1. Point ✔
+   2. Spot ✔
 5. Post Processing
    1. Gaussion Blur
    2. Bloom
