@@ -19,17 +19,17 @@ Shader "NoobRP/Lit" {
     }
 
     HLSLINCLUDE
+    
     //-------------------------------------------------------------------------------------
     // library include
     //-------------------------------------------------------------------------------------
-
-    // Libraries
 
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
     #include "Packages/com.noobrp.core/Runtime/ShaderLibrary/UnityInput.hlsl"
 
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceTransforms.hlsl"
+    
     ENDHLSL
 
     SubShader {

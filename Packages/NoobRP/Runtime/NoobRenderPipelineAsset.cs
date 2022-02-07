@@ -15,6 +15,11 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
 
 public class NoobRenderPipeline : RenderPipeline {
     private readonly NoobRenderPipelineAsset asset;
+    public Material postProcessMaterial;
+
+    enum Pass {
+        Copy,
+    }
 
     protected override void Render(ScriptableRenderContext context, Camera[] cameras) {
         foreach (var camera in cameras) {
@@ -28,10 +33,12 @@ public class NoobRenderPipeline : RenderPipeline {
 
     static readonly int _SpotPointShadowAtlas = Shader.PropertyToID("_SpotPointShadowAtlas");
     static int frameBufferId = Shader.PropertyToID("_CameraFrameBuffer");
+    private int _PostMap = Shader.PropertyToID("_PostMap");
 
 
     public NoobRenderPipeline(NoobRenderPipelineAsset asset) {
         this.asset = asset;
+        postProcessMaterial = CoreUtils.CreateEngineMaterial("NoobRP/PostProcess");
     }
 
     const string DIRECTIONAL_SHADOW_MAP = "Directional Light ShadowMap";
@@ -343,11 +350,17 @@ public class NoobRenderPipeline : RenderPipeline {
                 context.DrawGizmos(camera, GizmoSubset.PreImageEffects);
             }
 #endif
-            
+
+
             cmb.BeginSample("Post-Process");
-            cmb.Blit(frameBufferId, BuiltinRenderTextureType.CameraTarget);
+            // cmb.Blit(frameBufferId, BuiltinRenderTextureType.CameraTarget);
+
+            cmb.SetGlobalTexture(_PostMap, frameBufferId);
+            cmb.SetRenderTarget(BuiltinRenderTextureType.CameraTarget, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+            cmb.DrawProcedural(Matrix4x4.identity, postProcessMaterial, (int) Pass.Copy, MeshTopology.Triangles, 3);
+
             cmb.EndSample("Post-Process");
-            
+
 #if UNITY_EDITOR
             if (UnityEditor.Handles.ShouldRenderGizmos()) {
                 context.DrawGizmos(camera, GizmoSubset.PostImageEffects);
