@@ -68,7 +68,7 @@ public class NoobRenderPipeline : RenderPipeline {
 
     private void Render(ScriptableRenderContext context, Camera camera) {
         bool isGameCam = camera.cameraType == CameraType.Game;
-
+        camera.allowHDR = true;
         CommandBuffer cmb = CommandBufferPool.Get();
 
         // Cullling
@@ -325,7 +325,7 @@ public class NoobRenderPipeline : RenderPipeline {
 
             cmb.GetTemporaryRT(
                 _CameraFrameBuffer, camera.pixelWidth, camera.pixelHeight,
-                32, FilterMode.Bilinear, RenderTextureFormat.Default
+                32, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR
             );
             cmb.SetRenderTarget(
                 _CameraFrameBuffer,

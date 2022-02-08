@@ -53,6 +53,7 @@ Material:
     - _Cutoff: 0.5
     - _Diffuse: 1
     - _Emission: 1
+    - _EmissionScale: 1
     - _EnvWeight: 0
     - _Fresnel: 0
     - _FresnelXX: 0
@@ -65,6 +66,6 @@ Material:
     - _SpecularPow: 90
     m_Colors:
     - _BaseColor: {r: 0.9529412, g: 0.41960785, b: 0.41960785, a: 1}
-    - _EmissionColor: {r: 0.9529412, g: 0.41960785, b: 0.41960785, a: 1}
+    - _EmissionColor: {r: 1.4443887, g: 0.63600653, b: 0.63600653, a: 1}
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

@@ -2,11 +2,10 @@ Shader "NoobRP/Lit" {
     Properties {
         [MainColor]_BaseColor("_BaseColor",Color)=(1,1,1,1)
         [MainTexture]_BaseMap("_BaseMap",2D)="white"{}
-        _SpecularPow ("_SpecularPowXX", Range(1,90)) =30
         _CutOff ("_CutOff", Range(0,1)) = 0.1
         _EnvWeight ("_EnvWeight", Range(0,1)) =0
 
-        _EmissionColor("_EmissionColor", Color) = (1,1,1,1)
+        [HDR]_EmissionColor("_EmissionColor", Color) = (1,1,1,1)
         [NoScaleOffset] _EmissionMap("EmissionMap",2D)="white"{}
         [NoScaleOffset] _MaskMap("Mask (MODS)", 2D) = "white" {}
         [NoScaleOffset] _NormalMap("Normals", 2D) = "bump" {}

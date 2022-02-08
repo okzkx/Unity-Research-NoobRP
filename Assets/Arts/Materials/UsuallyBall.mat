@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: circuitry-albedo 2
+  m_Name: UsuallyBall
   m_Shader: {fileID: 4800000, guid: 1ee4b5ab8417365449bc383d80e18804, type: 3}
   m_ShaderKeywords: _DIFFUSE_HALF_LAMBERT _SPECULAR_BLING_PHONE
   m_LightmapFlags: 4
@@ -49,22 +49,22 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _CutOff: 0.9
+    - _CutOff: 0.1
     - _Cutoff: 0.5
     - _Diffuse: 1
     - _Emission: 0
-    - _EnvWeight: 0.3
+    - _EnvWeight: 0
     - _Fresnel: 0
     - _FresnelXX: 0
-    - _LightIntencity: 4
-    - _Metallic: 0
+    - _LightIntencity: 4.44
+    - _Metallic: 1
     - _Occlusion: 0
-    - _Roughness: 0.211
-    - _Smoothness: 0
+    - _Roughness: 0
+    - _Smoothness: 1
     - _Specular: 2
-    - _SpecularPow: 53.8
+    - _SpecularPow: 90
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
-    - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
+    - _EmissionColor: {r: 0, g: 0.42642736, b: 1, a: 1}
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

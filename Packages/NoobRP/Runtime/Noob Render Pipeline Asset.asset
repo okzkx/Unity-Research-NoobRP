@@ -15,5 +15,5 @@ MonoBehaviour:
   maxShadowDistance: 50
   bloom:
     threshold: 1
-    thresholdKnee: 0.51
-    intensity: 1
+    thresholdKnee: 0.3
+    intensity: 1.3

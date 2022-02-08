@@ -42,7 +42,6 @@ float4 _BaseMap_ST;
 
 float4 _EmissionColor;
 float4 _BaseColor;
-float _SpecularPow;
 float _CutOff;
 float _Roughness;
 float _EnvWeight;

@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: circuitry-albedo 1
+  m_Name: Wall
   m_Shader: {fileID: 4800000, guid: 1ee4b5ab8417365449bc383d80e18804, type: 3}
   m_ShaderKeywords: _DIFFUSE_HALF_LAMBERT _SPECULAR_BLING_PHONE
   m_LightmapFlags: 4
@@ -20,7 +20,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: a941115e6850bab4bb26eb21027ed904, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _Emission:
@@ -28,23 +28,23 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
-        m_Texture: {fileID: 2800000, guid: 8f1364d465ebcdc44a32500535aef3ea, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _Emmisiion:
-        m_Texture: {fileID: 2800000, guid: 8f1364d465ebcdc44a32500535aef3ea, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: a941115e6850bab4bb26eb21027ed904, type: 3}
-        m_Scale: {x: 1, y: 1}
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 2.41}
         m_Offset: {x: 0, y: 0}
     - _MaskMap:
-        m_Texture: {fileID: 2800000, guid: 0ec6a4afb296e424ab8e17130f84c389, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _NormalMap:
-        m_Texture: {fileID: 2800000, guid: 9af9dd8e3cf2a5e4fbb840389fd7aff7, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
@@ -52,17 +52,17 @@ Material:
     - _CutOff: 0.1
     - _Cutoff: 0.5
     - _Diffuse: 1
-    - _Emission: 0.523
-    - _EnvWeight: 0.437
-    - _Fresnel: 0
+    - _Emission: 0
+    - _EnvWeight: 0
+    - _Fresnel: 0.324
     - _FresnelXX: 0
-    - _LightIntencity: 4
-    - _Metallic: 0.73
+    - _LightIntencity: 2
+    - _Metallic: 0.84
     - _Occlusion: 0
-    - _Roughness: 0.413
-    - _Smoothness: 0.648
+    - _Roughness: 0
+    - _Smoothness: 1
     - _Specular: 2
-    - _SpecularPow: 53.6
+    - _SpecularPow: 90
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}

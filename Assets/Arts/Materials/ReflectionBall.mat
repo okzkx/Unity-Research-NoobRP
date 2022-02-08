@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: circuitry-albedo
+  m_Name: ReflectionBall
   m_Shader: {fileID: 4800000, guid: 1ee4b5ab8417365449bc383d80e18804, type: 3}
   m_ShaderKeywords: _DIFFUSE_HALF_LAMBERT _SPECULAR_BLING_PHONE
   m_LightmapFlags: 4
@@ -23,15 +23,7 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
-    - _Emission:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
     - _EmissionMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _Emmisiion:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
@@ -49,18 +41,18 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _CutOff: 0.1
+    - _CutOff: 0
     - _Cutoff: 0.5
     - _Diffuse: 1
     - _Emission: 0
-    - _EnvWeight: 0
-    - _Fresnel: 0.324
-    - _FresnelXX: 0
-    - _LightIntencity: 2
-    - _Metallic: 0.84
+    - _EmissionScale: 1
+    - _EnvWeight: 0.698
+    - _Fresnel: 0
+    - _LightIntencity: 4
+    - _Metallic: 0
     - _Occlusion: 0
     - _Roughness: 0
-    - _Smoothness: 1
+    - _Smoothness: 0.5
     - _Specular: 2
     - _SpecularPow: 90
     m_Colors:
