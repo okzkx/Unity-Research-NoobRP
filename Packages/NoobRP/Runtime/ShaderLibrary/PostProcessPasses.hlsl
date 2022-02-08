@@ -123,3 +123,13 @@ float4 BloomCombinePassFragment(Varyings input) : SV_TARGET
 
     return float4(postMap * _BloomIntensity + postMap2, 1.0);
 }
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
+
+float4 ToneMappingACESPassFragment (Varyings input) : SV_TARGET {
+    float2 uv = input.screenUV;
+    float4 color = SAMPLE_TEXTURE2D(_PostMap, sampler_linear_clamp, uv);
+    color.rgb = min(color.rgb, 60.0);
+    color.rgb = AcesTonemap(unity_to_ACES(color.rgb));
+    return color;
+}

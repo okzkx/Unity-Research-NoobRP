@@ -17,7 +17,7 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
     }
 
     [SerializeField] public BloomSettings bloom;
-    
+
     protected override RenderPipeline CreatePipeline() {
         return new NoobRenderPipeline(this);
     }
@@ -32,7 +32,8 @@ public class NoobRenderPipeline : RenderPipeline {
         BloomPrefilter,
         BloomHorizontal,
         BloomVertical,
-        BloomCombine
+        BloomCombine,
+        TomeMapping
     }
 
     protected override void Render(ScriptableRenderContext context, Camera[] cameras) {
@@ -49,6 +50,7 @@ public class NoobRenderPipeline : RenderPipeline {
     readonly int _PostMap2 = Shader.PropertyToID("_PostMap2");
     readonly int _BloomPrefilter = Shader.PropertyToID("_BloomPrefilter");
     readonly int _BloomIntensity = Shader.PropertyToID("_BloomIntensity");
+    readonly int _BloomResult = Shader.PropertyToID("_BloomResult");
 
     public NoobRenderPipeline(NoobRenderPipelineAsset asset) {
         this.asset = asset;
@@ -370,6 +372,7 @@ public class NoobRenderPipeline : RenderPipeline {
         {
             cmb.BeginSample(FINAL_BLIT);
 
+            // Without PostProcess
             if (!asset.enablePostProcess) {
                 // Copy To Camera Target
                 // cmb.Blit(frameBufferId, BuiltinRenderTextureType.CameraTarget);
@@ -377,8 +380,11 @@ public class NoobRenderPipeline : RenderPipeline {
                     BuiltinRenderTextureType.CameraTarget, Pass.Copy);
             } else
 
-                // Blooms
+                // Enable PostProcess
+                // Bloom
             {
+                RenderTextureFormat renderTextureFormat = RenderTextureFormat.DefaultHDR;
+
                 // Pre filter
                 int width = camera.pixelWidth / 2;
                 int height = camera.pixelHeight / 2;
@@ -394,7 +400,7 @@ public class NoobRenderPipeline : RenderPipeline {
                     threshold.y -= threshold.x;
                     cmb.SetGlobalVector(_BloomThreshold, threshold);
 
-                    cmb.GetTemporaryRT(_BloomPrefilter, width, height, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
+                    cmb.GetTemporaryRT(_BloomPrefilter, width, height, 0, FilterMode.Bilinear, renderTextureFormat);
                     BlitTexture(cmb, _CameraFrameBuffer, _BloomPrefilter, Pass.BloomPrefilter);
                 }
 
@@ -421,8 +427,8 @@ public class NoobRenderPipeline : RenderPipeline {
                             int to = Shader.PropertyToID(BLOOM_PYRAMID + (i * 2 + 1));
                             int intermidiate = Shader.PropertyToID(BLOOM_PYRAMID + i * 2);
 
-                            cmb.GetTemporaryRT(intermidiate, width, height, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
-                            cmb.GetTemporaryRT(to, width, height, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
+                            cmb.GetTemporaryRT(intermidiate, width, height, 0, FilterMode.Bilinear, renderTextureFormat);
+                            cmb.GetTemporaryRT(to, width, height, 0, FilterMode.Bilinear, renderTextureFormat);
                             BlitTexture(cmb, from, intermidiate, Pass.BloomHorizontal);
                             BlitTexture(cmb, intermidiate, to, Pass.BloomVertical);
 
@@ -456,13 +462,23 @@ public class NoobRenderPipeline : RenderPipeline {
                         }
                     }
 
+
+                    cmb.GetTemporaryRT(_BloomResult, camera.pixelWidth, camera.pixelHeight, 0,
+                        FilterMode.Bilinear, renderTextureFormat);
                     CombineTexture(cmb, GetPyramidShaderID(0),
                         _CameraFrameBuffer,
-                        BuiltinRenderTextureType.CameraTarget);
+                        _BloomResult);
 
                     for (int i = 0; i < bloomMaxIterations * 2; i++) {
                         cmb.ReleaseTemporaryRT(GetPyramidShaderID(i));
                     }
+
+                    // Toon mapping
+                    {
+                        BlitTexture(cmb, _BloomResult, BuiltinRenderTextureType.CameraTarget, Pass.TomeMapping);
+                    }
+                    
+                    cmb.ReleaseTemporaryRT(_BloomResult);
                 }
             }
 
