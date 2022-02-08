@@ -13,3 +13,8 @@ MonoBehaviour:
   m_Name: Noob Render Pipeline Asset
   m_EditorClassIdentifier: 
   maxShadowDistance: 50
+  enablePostProcess: 1
+  bloom:
+    threshold: 0.51
+    thresholdKnee: 0.225
+    intensity: 0.36

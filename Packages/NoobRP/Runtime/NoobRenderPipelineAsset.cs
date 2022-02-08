@@ -7,7 +7,17 @@ using UnityEngine.Rendering;
 [CreateAssetMenu(menuName = "Rendering/Noob Render Pipeline Asset")]
 public class NoobRenderPipelineAsset : RenderPipelineAsset {
     public float maxShadowDistance = 100;
+    public bool enablePostProcess => bloom != null && bloom.intensity > 0;
 
+    [Serializable]
+    public class BloomSettings {
+        [Min(0f)] public float threshold = 0.5f;
+        [Range(0f, 1f)] public float thresholdKnee = 0.5f;
+        [Min(0f)] public float intensity = 1;
+    }
+
+    [SerializeField] public BloomSettings bloom;
+    
     protected override RenderPipeline CreatePipeline() {
         return new NoobRenderPipeline(this);
     }
@@ -19,6 +29,10 @@ public class NoobRenderPipeline : RenderPipeline {
 
     enum Pass {
         Copy,
+        BloomPrefilter,
+        BloomHorizontal,
+        BloomVertical,
+        BloomCombine
     }
 
     protected override void Render(ScriptableRenderContext context, Camera[] cameras) {
@@ -27,23 +41,25 @@ public class NoobRenderPipeline : RenderPipeline {
         }
     }
 
-    private static readonly ShaderTagId NoobRPLightMode = new ShaderTagId("Both");
-
-    static readonly int dirShadowAtlasId = Shader.PropertyToID("_DirectionalShadowAtlas");
-
-    static readonly int _SpotPointShadowAtlas = Shader.PropertyToID("_SpotPointShadowAtlas");
-    static int frameBufferId = Shader.PropertyToID("_CameraFrameBuffer");
-    private int _PostMap = Shader.PropertyToID("_PostMap");
-
+    readonly ShaderTagId NoobRPLightMode = new ShaderTagId("Both");
+    readonly int _DirectionalShadowAtlas = Shader.PropertyToID("_DirectionalShadowAtlas");
+    readonly int _SpotPointShadowAtlas = Shader.PropertyToID("_SpotPointShadowAtlas");
+    readonly int _CameraFrameBuffer = Shader.PropertyToID("_CameraFrameBuffer");
+    readonly int _PostMap = Shader.PropertyToID("_PostMap");
+    readonly int _PostMap2 = Shader.PropertyToID("_PostMap2");
+    readonly int _BloomPrefilter = Shader.PropertyToID("_BloomPrefilter");
+    readonly int _BloomIntensity = Shader.PropertyToID("_BloomIntensity");
 
     public NoobRenderPipeline(NoobRenderPipelineAsset asset) {
         this.asset = asset;
         postProcessMaterial = CoreUtils.CreateEngineMaterial("NoobRP/PostProcess");
     }
 
-    const string DIRECTIONAL_SHADOW_MAP = "Directional Light ShadowMap";
-    const string SPOT_POINT_SHADOW_MAP = "Spot Point Light ShadowMap";
-    private const string DRAW_RENDERERS = "RenderLoop.Clear";
+    const string BLOOM_PYRAMID = "_BloomPyramid";
+    const string FINAL_BLIT = "Final Blit";
+    const string DIRECTIONAL_SHADOW_MAP = "ShadowMap.Directional";
+    const string SPOT_POINT_SHADOW_MAP = "ShadowMap.SpotPoint";
+    const string DRAW_RENDERERS = "RenderLoop.Clear";
     const int directionalLightCapacity = 1;
     const int spotLightCapacity = 4;
     const int pointLightCapacity = 2;
@@ -153,9 +169,9 @@ public class NoobRenderPipeline : RenderPipeline {
                 cmb.BeginSample(DIRECTIONAL_SHADOW_MAP);
 
                 int rtWidth = 1024;
-                cmb.GetTemporaryRT(dirShadowAtlasId, rtWidth, rtWidth,
+                cmb.GetTemporaryRT(_DirectionalShadowAtlas, rtWidth, rtWidth,
                     32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
-                cmb.SetRenderTarget(dirShadowAtlasId,
+                cmb.SetRenderTarget(_DirectionalShadowAtlas,
                     RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
                 cmb.ClearRenderTarget(true, false, Color.clear);
 
@@ -306,11 +322,11 @@ public class NoobRenderPipeline : RenderPipeline {
             context.SetupCameraProperties(camera);
 
             cmb.GetTemporaryRT(
-                frameBufferId, camera.pixelWidth, camera.pixelHeight,
+                _CameraFrameBuffer, camera.pixelWidth, camera.pixelHeight,
                 32, FilterMode.Bilinear, RenderTextureFormat.Default
             );
             cmb.SetRenderTarget(
-                frameBufferId,
+                _CameraFrameBuffer,
                 RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store
             );
 
@@ -344,32 +360,136 @@ public class NoobRenderPipeline : RenderPipeline {
             cmb.EndSample(DRAW_RENDERERS);
         }
 
+#if UNITY_EDITOR
+        if (UnityEditor.Handles.ShouldRenderGizmos()) {
+            context.DrawGizmos(camera, GizmoSubset.PreImageEffects);
+        }
+#endif
+
+        // Final Blit
         {
-#if UNITY_EDITOR
-            if (UnityEditor.Handles.ShouldRenderGizmos()) {
-                context.DrawGizmos(camera, GizmoSubset.PreImageEffects);
+            cmb.BeginSample(FINAL_BLIT);
+
+            if (!asset.enablePostProcess) {
+                // Copy To Camera Target
+                // cmb.Blit(frameBufferId, BuiltinRenderTextureType.CameraTarget);
+                BlitTexture(cmb, _CameraFrameBuffer,
+                    BuiltinRenderTextureType.CameraTarget, Pass.Copy);
+            } else
+
+                // Blooms
+            {
+                // Pre filter
+                int width = camera.pixelWidth / 2;
+                int height = camera.pixelHeight / 2;
+                NoobRenderPipelineAsset.BloomSettings bloom = asset.bloom;
+                {
+                    int _BloomThreshold = Shader.PropertyToID("_BloomThreshold");
+
+                    Vector4 threshold;
+                    threshold.x = Mathf.GammaToLinearSpace(bloom.threshold);
+                    threshold.y = threshold.x * bloom.thresholdKnee;
+                    threshold.z = 2f * threshold.y;
+                    threshold.w = 0.25f / (threshold.y + 0.00001f);
+                    threshold.y -= threshold.x;
+                    cmb.SetGlobalVector(_BloomThreshold, threshold);
+
+                    cmb.GetTemporaryRT(_BloomPrefilter, width, height, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
+                    BlitTexture(cmb, _CameraFrameBuffer, _BloomPrefilter, Pass.BloomPrefilter);
+                }
+
+                // Bloom Pyramid
+                {
+                    int GetPyramidShaderID(int id) {
+                        return Shader.PropertyToID(BLOOM_PYRAMID + id);
+                    }
+
+                    width /= 2;
+                    height /= 2;
+                    int bloomMaxIterations = 4;
+                    int bloomScaleLimit = 2;
+
+                    // Pyramid Generate
+                    {
+                        int from = _BloomPrefilter;
+                        int i = 0;
+                        for (; i < bloomMaxIterations; i++) {
+                            if (height < bloomScaleLimit || width < bloomScaleLimit) {
+                                break;
+                            }
+
+                            int to = Shader.PropertyToID(BLOOM_PYRAMID + (i * 2 + 1));
+                            int intermidiate = Shader.PropertyToID(BLOOM_PYRAMID + i * 2);
+
+                            cmb.GetTemporaryRT(intermidiate, width, height, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
+                            cmb.GetTemporaryRT(to, width, height, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
+                            BlitTexture(cmb, from, intermidiate, Pass.BloomHorizontal);
+                            BlitTexture(cmb, intermidiate, to, Pass.BloomVertical);
+
+                            from = to;
+                            width /= 2;
+                            height /= 2;
+                        }
+                    }
+
+                    // Pyramid Combine
+                    {
+                        int c1Id = bloomMaxIterations * 2 - 1;
+                        int c2Id = c1Id - 2;
+                        int c3Id = c2Id - 1;
+
+                        cmb.SetGlobalFloat(_BloomIntensity, bloom.intensity);
+
+                        while (c1Id > 0) {
+                            int c1 = GetPyramidShaderID(c1Id);
+                            int c2 = GetPyramidShaderID(c2Id);
+                            int c3 = GetPyramidShaderID(c3Id);
+
+                            cmb.SetGlobalTexture(_PostMap, c1);
+                            cmb.SetGlobalTexture(_PostMap2, c2);
+                            cmb.SetRenderTarget(c3, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+                            cmb.DrawProcedural(Matrix4x4.identity, postProcessMaterial, (int) Pass.BloomCombine, MeshTopology.Triangles, 3);
+
+                            c1Id = c3Id;
+                            c2Id = c1Id - 1;
+                            c3Id = c2Id - 1;
+                        }
+                    }
+
+                    CombineTexture(cmb, GetPyramidShaderID(0),
+                        _CameraFrameBuffer,
+                        BuiltinRenderTextureType.CameraTarget);
+
+                    for (int i = 0; i < bloomMaxIterations * 2; i++) {
+                        cmb.ReleaseTemporaryRT(GetPyramidShaderID(i));
+                    }
+                }
             }
-#endif
 
-
-            cmb.BeginSample("Post-Process");
-            // cmb.Blit(frameBufferId, BuiltinRenderTextureType.CameraTarget);
-
-            cmb.SetGlobalTexture(_PostMap, frameBufferId);
-            cmb.SetRenderTarget(BuiltinRenderTextureType.CameraTarget, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
-            cmb.DrawProcedural(Matrix4x4.identity, postProcessMaterial, (int) Pass.Copy, MeshTopology.Triangles, 3);
-
-            cmb.EndSample("Post-Process");
-
-#if UNITY_EDITOR
-            if (UnityEditor.Handles.ShouldRenderGizmos()) {
-                context.DrawGizmos(camera, GizmoSubset.PostImageEffects);
-            }
-#endif
+            cmb.EndSample(FINAL_BLIT);
             ExcuteAndClearCommandBuffer(context, cmb);
         }
 
+#if UNITY_EDITOR
+        if (UnityEditor.Handles.ShouldRenderGizmos()) {
+            context.DrawGizmos(camera, GizmoSubset.PostImageEffects);
+        }
+#endif
+
         EndRender(context, cmb);
+    }
+
+    private void BlitTexture(CommandBuffer cmb, RenderTargetIdentifier from, RenderTargetIdentifier to, Pass pass) {
+        cmb.SetGlobalTexture(_PostMap, from);
+        cmb.SetRenderTarget(to, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+        cmb.DrawProcedural(Matrix4x4.identity, postProcessMaterial, (int) pass, MeshTopology.Triangles, 3);
+    }
+
+    private void CombineTexture(CommandBuffer cmb, RenderTargetIdentifier rt1, RenderTargetIdentifier rt2, RenderTargetIdentifier rt3) {
+        cmb.SetGlobalTexture(_PostMap, rt1);
+        cmb.SetGlobalTexture(_PostMap2, rt2);
+        cmb.SetRenderTarget(rt3, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+        cmb.DrawProcedural(Matrix4x4.identity, postProcessMaterial, (int) Pass.BloomCombine, MeshTopology.Triangles, 3);
     }
 
     private Matrix4x4 CreateWorldToShadowMapCoordMatrix(Matrix4x4 viewMatrix, Matrix4x4 projMatrix, Rect viewPort) {
@@ -403,10 +523,10 @@ public class NoobRenderPipeline : RenderPipeline {
         cmb.Clear();
     }
 
-    private static void EndRender(ScriptableRenderContext context, CommandBuffer cmb) {
-        cmb.ReleaseTemporaryRT(dirShadowAtlasId);
+    private void EndRender(ScriptableRenderContext context, CommandBuffer cmb) {
+        cmb.ReleaseTemporaryRT(_DirectionalShadowAtlas);
         cmb.ReleaseTemporaryRT(_SpotPointShadowAtlas);
-        cmb.ReleaseTemporaryRT(frameBufferId);
+        cmb.ReleaseTemporaryRT(_CameraFrameBuffer);
         context.Submit();
         cmb.Release();
     }
