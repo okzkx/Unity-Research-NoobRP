@@ -26,6 +26,6 @@
    1. Point ✔
    2. Spot ✔
 5. Post Processing
-   1. Gaussion Blur
-   2. Bloom
-   3. HDR
+   1. Gaussion Blur ✔
+   2. Bloom ✔
+   3. HDR ✔
