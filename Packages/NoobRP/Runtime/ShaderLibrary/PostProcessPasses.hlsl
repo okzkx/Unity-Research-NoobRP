@@ -126,10 +126,83 @@ float4 BloomCombinePassFragment(Varyings input) : SV_TARGET
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 
-float4 ToneMappingACESPassFragment (Varyings input) : SV_TARGET {
+float4 _ColorAdjustments;
+
+float3 PostExposure(float3 color)
+{
+    return color * _ColorAdjustments.x;
+}
+
+float3 Contrast(float3 color, bool useACES)
+{
+    color = useACES ? ACES_to_ACEScc(unity_to_ACES(color)) : LinearToLogC(color);
+    color = (color - ACEScc_MIDGRAY) * _ColorAdjustments.y + ACEScc_MIDGRAY;
+    return useACES ? ACES_to_ACEScg(ACEScc_to_ACES(color)) : LogCToLinear(color);
+}
+
+float3 HueShift(float3 color)
+{
+    color = RgbToHsv(color);
+    float hue = color.x + _ColorAdjustments.z;
+    color.x = RotateHue(hue, 0.0, 1.0);
+    return HsvToRgb(color);
+}
+
+float3 Saturation(float3 color, bool useACES)
+{
+    float luminance = useACES ? AcesLuminance(color) : Luminance(color);
+    return (color - luminance) * _ColorAdjustments.w + luminance;
+}
+
+float4 _ColorFilter;
+
+float3 ColorFilter(float3 color)
+{
+    return color * _ColorFilter.rgb;
+}
+
+float4 _WhiteBalance;
+
+float3 WhiteBalance(float3 color)
+{
+    color = LinearToLMS(color);
+    color *= _WhiteBalance.rgb;
+    return LMSToLinear(color);
+}
+
+float4 _ColorGradingLUTParameters;
+
+float4 ToneMappingACESPassFragment(Varyings input) : SV_TARGET
+{
     float2 uv = input.screenUV;
-    float4 color = SAMPLE_TEXTURE2D(_PostMap, sampler_linear_clamp, uv);
-    color.rgb = min(color.rgb, 60.0);
-    color.rgb = AcesTonemap(unity_to_ACES(color.rgb));
-    return color;
+    bool useACES = true;
+
+    float3 color = GetLutStripValue(uv, _ColorGradingLUTParameters);
+    color = PostExposure(color);
+    color = WhiteBalance(color);
+    color = Contrast(color, useACES);
+    color = ColorFilter(color);
+    color = max(color, 0.0);
+    // color = ColorGradeSplitToning(color, useACES);
+    // color = ColorGradingChannelMixer(color);
+    // color = max(color, 0.0);
+    // color = ColorGradingShadowsMidtonesHighlights(color, useACES);
+    color = HueShift(color);
+    color = Saturation(color, useACES);
+    color = useACES ? ACEScg_to_ACES(color) : color;
+    color = max(color, 0.0);
+    color = AcesTonemap(color);
+    return float4(color, 1.0);
+}
+
+TEXTURE2D(_ColorGradingLUT);
+float3 _LUTScaleOffset;
+
+float4 FinalPassFragment(Varyings input) : SV_TARGET
+{
+    float2 uv = input.screenUV;
+    float3 color = SAMPLE_TEXTURE2D(_PostMap, sampler_linear_clamp, uv).rgb;
+    color = saturate(color);
+    color = ApplyLut2D(TEXTURE2D_ARGS(_ColorGradingLUT, sampler_linear_clamp), color, _LUTScaleOffset);
+    return float4(color, 1);
 }

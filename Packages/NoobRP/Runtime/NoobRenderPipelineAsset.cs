@@ -16,7 +16,24 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
         [Min(0f)] public float intensity = 1;
     }
 
-    [SerializeField] public BloomSettings bloom;
+    [Serializable]
+    public class ColorAdjustments {
+        public float postExposure = 0;
+        [Range(-100f, 100f)] public float contrast = 0;
+        [ColorUsage(false, true)] public Color colorFilter = Color.white;
+        [Range(-180f, 180f)] public float hueShift = 0;
+        [Range(-100f, 100f)] public float saturation = 0;
+    }
+
+    [Serializable]
+    public class WhiteBalance {
+        [Range(-100f, 100f)] public float temperature;
+        public float tint;
+    }
+
+    public BloomSettings bloom;
+    public ColorAdjustments colorAdjustments;
+    public WhiteBalance whiteBalance;
 
     protected override RenderPipeline CreatePipeline() {
         return new NoobRenderPipeline(this);
@@ -33,7 +50,8 @@ public class NoobRenderPipeline : RenderPipeline {
         BloomHorizontal,
         BloomVertical,
         BloomCombine,
-        TomeMapping
+        TomeMapping,
+        Final
     }
 
     protected override void Render(ScriptableRenderContext context, Camera[] cameras) {
@@ -51,12 +69,15 @@ public class NoobRenderPipeline : RenderPipeline {
     readonly int _BloomPrefilter = Shader.PropertyToID("_BloomPrefilter");
     readonly int _BloomIntensity = Shader.PropertyToID("_BloomIntensity");
     readonly int _BloomResult = Shader.PropertyToID("_BloomResult");
+    readonly int _ColorGradingLUT = Shader.PropertyToID("_ColorGradingLUT");
 
     public NoobRenderPipeline(NoobRenderPipelineAsset asset) {
         this.asset = asset;
         postProcessMaterial = CoreUtils.CreateEngineMaterial("NoobRP/PostProcess");
     }
 
+    const string BLOOM = "Bloom";
+    const string LUT = "LUT";
     const string BLOOM_PYRAMID = "_BloomPyramid";
     const string FINAL_BLIT = "Final Blit";
     const string DIRECTIONAL_SHADOW_MAP = "ShadowMap.Directional";
@@ -370,8 +391,6 @@ public class NoobRenderPipeline : RenderPipeline {
 
         // Final Blit
         {
-            cmb.BeginSample(FINAL_BLIT);
-
             // Without PostProcess
             if (!asset.enablePostProcess) {
                 // Copy To Camera Target
@@ -381,8 +400,10 @@ public class NoobRenderPipeline : RenderPipeline {
             } else
 
                 // Enable PostProcess
-                // Bloom
             {
+                // Bloom
+                cmb.BeginSample(BLOOM);
+                
                 RenderTextureFormat renderTextureFormat = RenderTextureFormat.DefaultHDR;
 
                 // Pre filter
@@ -472,17 +493,67 @@ public class NoobRenderPipeline : RenderPipeline {
                     for (int i = 0; i < bloomMaxIterations * 2; i++) {
                         cmb.ReleaseTemporaryRT(GetPyramidShaderID(i));
                     }
-
-                    // Toon mapping
-                    {
-                        BlitTexture(cmb, _BloomResult, BuiltinRenderTextureType.CameraTarget, Pass.TomeMapping);
-                    }
-                    
-                    cmb.ReleaseTemporaryRT(_BloomResult);
                 }
+                
+                cmb.EndSample(BLOOM);
+
+                int colorLUTresolution = 32;
+                int lutHeight = colorLUTresolution;
+                int lutWidth = lutHeight * lutHeight;
+
+                // Color Grading data prepare
+                {
+                    cmb.BeginSample(LUT);
+
+                    // Color Adjectments
+                    {
+                        var colorAdjustments = asset.colorAdjustments;
+                        cmb.SetGlobalVector("_ColorAdjustments", new Vector4(
+                            Mathf.Pow(2f, colorAdjustments.postExposure),
+                            colorAdjustments.contrast * 0.01f + 1f,
+                            colorAdjustments.hueShift * (1f / 360f),
+                            colorAdjustments.saturation * 0.01f + 1f
+                        ));
+                        cmb.SetGlobalVector("_ColorFilter", colorAdjustments.colorFilter.linear);
+                    }
+
+                    // White Balance
+                    {
+                        var whiteBalance = asset.whiteBalance;
+                        cmb.SetGlobalVector("_WhiteBalance",
+                            ColorUtils.ColorBalanceToLMSCoeffs(whiteBalance.temperature, whiteBalance.tint)
+                        );
+                    }
+
+                    // TODO: SplitToning
+                    // TODO: Channel Mixer
+                    // TODO: Shadow Midtones Highlights
+
+                    // Render LUT with Color Grading and Toon mapping
+                    cmb.GetTemporaryRT(_ColorGradingLUT, lutWidth, lutHeight, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
+                    Vector4 colorGradingLUTParameters = new Vector4(lutHeight, 0.5f / lutWidth, 0.5f / lutHeight, lutHeight / (lutHeight - 1f));
+                    cmb.SetGlobalVector("_ColorGradingLUTParameters", colorGradingLUTParameters);
+                    // no mater what's input, aim to generate _ColorGradingLUT
+                    BlitTexture(cmb, _BloomResult, _ColorGradingLUT, Pass.TomeMapping);
+
+                    cmb.EndSample(LUT);
+                }
+
+                // Final Blit
+                {
+                    cmb.BeginSample(FINAL_BLIT);
+
+                    // Blit Bloom Result to Camera target with LUT
+                    cmb.SetGlobalVector("_LUTScaleOffset", new Vector4(1f / lutWidth, 1f / lutHeight, lutHeight - 1));
+                    BlitTexture(cmb, _BloomResult, BuiltinRenderTextureType.CameraTarget, Pass.Final);
+
+                    cmb.EndSample(FINAL_BLIT);
+                }
+
+                cmb.ReleaseTemporaryRT(_BloomResult);
+                cmb.ReleaseTemporaryRT(_ColorGradingLUT);
             }
 
-            cmb.EndSample(FINAL_BLIT);
             ExcuteAndClearCommandBuffer(context, cmb);
         }
 

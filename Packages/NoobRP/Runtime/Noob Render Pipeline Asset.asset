@@ -17,3 +17,12 @@ MonoBehaviour:
     threshold: 1
     thresholdKnee: 0.3
     intensity: 1.3
+  colorAdjustments:
+    postExposure: 0
+    contrast: 54.8
+    colorFilter: {r: 1, g: 1, b: 1, a: 1}
+    hueShift: 0
+    saturation: 0
+  whiteBalance:
+    temperature: 0
+    tint: 0
