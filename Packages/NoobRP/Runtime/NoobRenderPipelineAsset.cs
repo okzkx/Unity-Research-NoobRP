@@ -545,7 +545,7 @@ public class NoobRenderPipeline : RenderPipeline {
 
                     // Blit Bloom Result to Camera target with LUT
                     cmb.SetGlobalVector("_LUTScaleOffset", new Vector4(1f / lutWidth, 1f / lutHeight, lutHeight - 1));
-                    BlitTexture(cmb, _BloomResult, BuiltinRenderTextureType.CameraTarget, Pass.Final);
+                    BlitTexture(cmb, _BloomResult, BuiltinRenderTextureType.CameraTarget, Pass.Final, camera.pixelRect);
 
                     cmb.EndSample(FINAL_BLIT);
                 }
@@ -566,9 +566,12 @@ public class NoobRenderPipeline : RenderPipeline {
         EndRender(context, cmb);
     }
 
-    private void BlitTexture(CommandBuffer cmb, RenderTargetIdentifier from, RenderTargetIdentifier to, Pass pass) {
+    private void BlitTexture(CommandBuffer cmb, RenderTargetIdentifier from, RenderTargetIdentifier to, Pass pass, Rect? viewPortRect = null) {
         cmb.SetGlobalTexture(_PostMap, from);
         cmb.SetRenderTarget(to, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+        if (viewPortRect!=null) {
+            cmb.SetViewport(viewPortRect.Value);
+        }
         cmb.DrawProcedural(Matrix4x4.identity, postProcessMaterial, (int) pass, MeshTopology.Triangles, 3);
     }
 
