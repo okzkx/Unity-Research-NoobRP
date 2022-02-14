@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: ParticleUnlit
+  m_Name: ParticleFlipbookUnlit
   m_Shader: {fileID: 4800000, guid: 4c657e39bef043449150855f689dd254, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
