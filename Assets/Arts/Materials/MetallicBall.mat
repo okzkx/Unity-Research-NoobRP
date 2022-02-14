@@ -54,11 +54,11 @@ Material:
     - _Diffuse: 1
     - _Emission: 1
     - _EmissionScale: 1
-    - _EnvWeight: 0.5
+    - _EnvWeight: 0.531
     - _Fresnel: 0
     - _FresnelXX: 0
     - _LightIntencity: 4
-    - _Metallic: 0.73
+    - _Metallic: 0.482
     - _Occlusion: 0
     - _Roughness: 0.413
     - _Smoothness: 0.648

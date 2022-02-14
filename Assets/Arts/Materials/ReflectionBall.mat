@@ -46,13 +46,13 @@ Material:
     - _Diffuse: 1
     - _Emission: 0
     - _EmissionScale: 1
-    - _EnvWeight: 0.698
+    - _EnvWeight: 0.425
     - _Fresnel: 0
     - _LightIntencity: 4
     - _Metallic: 0
     - _Occlusion: 0
     - _Roughness: 0
-    - _Smoothness: 0.5
+    - _Smoothness: 1
     - _Specular: 2
     - _SpecularPow: 90
     m_Colors:

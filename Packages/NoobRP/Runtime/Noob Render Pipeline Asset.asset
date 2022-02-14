@@ -12,17 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 827767d43320ce54c80d1fccb5e2bab9, type: 3}
   m_Name: Noob Render Pipeline Asset
   m_EditorClassIdentifier: 
-  maxShadowDistance: 50
+  maxShadowDistance: 100
   bloom:
     threshold: 1
     thresholdKnee: 0.3
-    intensity: 1.3
+    intensity: 1
   colorAdjustments:
-    postExposure: 0
-    contrast: 54.8
+    postExposure: 0.5
+    contrast: 17
     colorFilter: {r: 1, g: 1, b: 1, a: 1}
     hueShift: 0
-    saturation: 0
+    saturation: 23
   whiteBalance:
-    temperature: 0
+    temperature: 5
     tint: 0
