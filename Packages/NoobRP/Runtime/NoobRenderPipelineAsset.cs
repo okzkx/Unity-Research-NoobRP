@@ -64,6 +64,9 @@ public class NoobRenderPipeline : RenderPipeline {
     readonly int _DirectionalShadowAtlas = Shader.PropertyToID("_DirectionalShadowAtlas");
     readonly int _SpotPointShadowAtlas = Shader.PropertyToID("_SpotPointShadowAtlas");
     readonly int _CameraFrameBuffer = Shader.PropertyToID("_CameraFrameBuffer");
+    readonly int _DepthBuffer = Shader.PropertyToID("_DepthBuffer");
+    readonly int _ColorMap = Shader.PropertyToID("_ColorMap");
+    readonly int _DepthMap = Shader.PropertyToID("_DepthMap");
     readonly int _PostMap = Shader.PropertyToID("_PostMap");
     readonly int _PostMap2 = Shader.PropertyToID("_PostMap2");
     readonly int _BloomPrefilter = Shader.PropertyToID("_BloomPrefilter");
@@ -100,6 +103,12 @@ public class NoobRenderPipeline : RenderPipeline {
         // Draw Setting
         var sortingSettings = new SortingSettings(camera);
         var drawingSettings = new DrawingSettings(NoobRPLightMode, default);
+        drawingSettings.perObjectData =
+            PerObjectData.ReflectionProbes |
+            PerObjectData.Lightmaps | PerObjectData.ShadowMask |
+            PerObjectData.LightProbe | PerObjectData.OcclusionProbe |
+            PerObjectData.LightProbeProxyVolume |
+            PerObjectData.OcclusionProbeProxyVolume;
 
         // Filter Setting
         var filteringSettings = new FilteringSettings(RenderQueueRange.opaque);
@@ -339,49 +348,43 @@ public class NoobRenderPipeline : RenderPipeline {
         // Render Renderers
         // if (false) 
         {
-            cmb.BeginSample(DRAW_RENDERERS);
-
             // Set up shader properties
             context.SetupCameraProperties(camera);
 
-            cmb.GetTemporaryRT(
-                _CameraFrameBuffer, camera.pixelWidth, camera.pixelHeight,
-                32, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR
-            );
-            cmb.SetRenderTarget(
-                _CameraFrameBuffer,
-                RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store
-            );
-
+            cmb.GetTemporaryRT(_CameraFrameBuffer, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
+            cmb.GetTemporaryRT(_DepthBuffer, camera.pixelWidth, camera.pixelHeight, 32, FilterMode.Point, RenderTextureFormat.Depth);
+            cmb.SetRenderTarget(_CameraFrameBuffer, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
+                _DepthBuffer, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
             cmb.ClearRenderTarget(true, true, Color.clear);
-
-            cmb.EndSample(DRAW_RENDERERS);
-
             ExcuteAndClearCommandBuffer(context, cmb);
 
             // Draw opaque
-            cmb.BeginSample(DRAW_RENDERERS);
 
             sortingSettings.criteria = SortingCriteria.CommonOpaque;
             drawingSettings.sortingSettings = sortingSettings;
-            drawingSettings.perObjectData =
-                PerObjectData.ReflectionProbes |
-                PerObjectData.Lightmaps | PerObjectData.ShadowMask |
-                PerObjectData.LightProbe | PerObjectData.OcclusionProbe |
-                PerObjectData.LightProbeProxyVolume |
-                PerObjectData.OcclusionProbeProxyVolume;
             filteringSettings.renderQueueRange = RenderQueueRange.opaque;
             context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
 
             context.DrawSkybox(camera);
+
+            // Store Color and Depth map
+            {
+                cmb.GetTemporaryRT(_ColorMap, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
+                cmb.GetTemporaryRT(_DepthMap, camera.pixelWidth, camera.pixelHeight, 32, FilterMode.Point, RenderTextureFormat.Depth);
+                cmb.CopyTexture(_CameraFrameBuffer, _ColorMap);
+                cmb.CopyTexture(_DepthBuffer, _DepthMap);
+                ExcuteAndClearCommandBuffer(context, cmb);
+            }
 
             // Draw transparent
             sortingSettings.criteria = SortingCriteria.CommonTransparent;
             drawingSettings.sortingSettings = sortingSettings;
             filteringSettings.renderQueueRange = RenderQueueRange.transparent;
             context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
-            cmb.EndSample(DRAW_RENDERERS);
+
+            ExcuteAndClearCommandBuffer(context, cmb);
         }
+
 
 #if UNITY_EDITOR
         if (UnityEditor.Handles.ShouldRenderGizmos()) {
@@ -403,7 +406,7 @@ public class NoobRenderPipeline : RenderPipeline {
             {
                 // Bloom
                 cmb.BeginSample(BLOOM);
-                
+
                 RenderTextureFormat renderTextureFormat = RenderTextureFormat.DefaultHDR;
 
                 // Pre filter
@@ -494,7 +497,7 @@ public class NoobRenderPipeline : RenderPipeline {
                         cmb.ReleaseTemporaryRT(GetPyramidShaderID(i));
                     }
                 }
-                
+
                 cmb.EndSample(BLOOM);
 
                 int colorLUTresolution = 32;
@@ -549,9 +552,6 @@ public class NoobRenderPipeline : RenderPipeline {
 
                     cmb.EndSample(FINAL_BLIT);
                 }
-
-                cmb.ReleaseTemporaryRT(_BloomResult);
-                cmb.ReleaseTemporaryRT(_ColorGradingLUT);
             }
 
             ExcuteAndClearCommandBuffer(context, cmb);
@@ -569,9 +569,10 @@ public class NoobRenderPipeline : RenderPipeline {
     private void BlitTexture(CommandBuffer cmb, RenderTargetIdentifier from, RenderTargetIdentifier to, Pass pass, Rect? viewPortRect = null) {
         cmb.SetGlobalTexture(_PostMap, from);
         cmb.SetRenderTarget(to, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
-        if (viewPortRect!=null) {
+        if (viewPortRect != null) {
             cmb.SetViewport(viewPortRect.Value);
         }
+
         cmb.DrawProcedural(Matrix4x4.identity, postProcessMaterial, (int) pass, MeshTopology.Triangles, 3);
     }
 
@@ -617,6 +618,14 @@ public class NoobRenderPipeline : RenderPipeline {
         cmb.ReleaseTemporaryRT(_DirectionalShadowAtlas);
         cmb.ReleaseTemporaryRT(_SpotPointShadowAtlas);
         cmb.ReleaseTemporaryRT(_CameraFrameBuffer);
+        cmb.ReleaseTemporaryRT(_DepthBuffer);
+        cmb.ReleaseTemporaryRT(_ColorMap);
+        cmb.ReleaseTemporaryRT(_DepthMap);
+        cmb.ReleaseTemporaryRT(_PostMap);
+        cmb.ReleaseTemporaryRT(_PostMap2);
+        cmb.ReleaseTemporaryRT(_BloomPrefilter);
+        cmb.ReleaseTemporaryRT(_BloomResult);
+        cmb.ReleaseTemporaryRT(_ColorGradingLUT);
         context.Submit();
         cmb.Release();
     }
