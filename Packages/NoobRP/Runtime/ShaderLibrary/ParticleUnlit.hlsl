@@ -1,4 +1,6 @@
-﻿//-------------------------------------------------------------------------------------
+﻿#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
+
+//-------------------------------------------------------------------------------------
 // variable declaration
 //-------------------------------------------------------------------------------------
 
@@ -27,6 +29,8 @@ struct VaryingsMeshToPS
 
 TEXTURE2D(_BaseMap);
 SAMPLER(sampler_BaseMap);
+TEXTURE2D(_NormalMap);
+SAMPLER(sampler_NormalMap);
 
 TEXTURE2D(_DepthMap);
 TEXTURE2D(_ColorMap);
@@ -41,6 +45,7 @@ float4 _BaseMap_ST;
 float4 _BaseColor;
 float _SpecularPow;
 float4 _SpecularColor;
+float _Distortion;
 
 CBUFFER_END
 
@@ -79,7 +84,10 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     float depthAttenuation = saturate(depthDelta / 1.5);
     color.a *= depthAttenuation;
     
-    float3 colorMap = SAMPLE_TEXTURE2D_LOD(_ColorMap, sampler_linear_clamp, uvSS, 0);
+    float4 normalMap = SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, input.texCoord0.xy);
+    float2 distortion = UnpackNormal(normalMap).xy * _Distortion;
+    float4 colorMap = SAMPLE_TEXTURE2D_LOD(_ColorMap, sampler_linear_clamp, uvSS + distortion , 0);
+    color.rgb = lerp(colorMap.rgb, color.rgb , color.a);
     
     return color;
 }
