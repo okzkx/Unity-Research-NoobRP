@@ -46,6 +46,7 @@ float4 _BaseColor;
 float _SpecularPow;
 float4 _SpecularColor;
 float _Distortion;
+float4 _BufferSize;
 
 CBUFFER_END
 
@@ -76,7 +77,7 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     float4 color = baseMap * baseColor * meshColor;
 
     // Depth attenuation fade
-    float2 uvSS = input.positionCS.xy / _ScreenParams.xy;
+    float2 uvSS = input.positionCS.xy * _BufferSize.xy;
     float depth = input.positionCS.w;
     float depthMap = SAMPLE_DEPTH_TEXTURE_LOD(_DepthMap, sampler_point_clamp, uvSS, 0);
     float backGroundDepth = LinearEyeDepth(depthMap, _ZBufferParams);

@@ -35,6 +35,8 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
     public ColorAdjustments colorAdjustments;
     public WhiteBalance whiteBalance;
 
+    [Range(0.5f, 2f)] public float renderScale;
+
     protected override RenderPipeline CreatePipeline() {
         return new NoobRenderPipeline(this);
     }
@@ -345,14 +347,19 @@ public class NoobRenderPipeline : RenderPipeline {
             cmb.EndSample("ShadowMap");
         }
 
+        float renderScale = asset.renderScale;
+        Vector2Int bufferSize = new Vector2Int((int) (camera.pixelWidth * renderScale), (int) (camera.pixelHeight * renderScale));
+
         // Render Renderers
         // if (false) 
         {
             // Set up shader properties
             context.SetupCameraProperties(camera);
 
-            cmb.GetTemporaryRT(_CameraFrameBuffer, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
-            cmb.GetTemporaryRT(_DepthBuffer, camera.pixelWidth, camera.pixelHeight, 32, FilterMode.Point, RenderTextureFormat.Depth);
+            cmb.SetGlobalVector("_BufferSize", new Vector4(1f / bufferSize.x, 1f / bufferSize.y, bufferSize.x, bufferSize.y));
+            
+            cmb.GetTemporaryRT(_CameraFrameBuffer, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
+            cmb.GetTemporaryRT(_DepthBuffer, bufferSize.x, bufferSize.y, 32, FilterMode.Point, RenderTextureFormat.Depth);
             cmb.SetRenderTarget(_CameraFrameBuffer, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
                 _DepthBuffer, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
             cmb.ClearRenderTarget(true, true, Color.clear);
@@ -369,8 +376,8 @@ public class NoobRenderPipeline : RenderPipeline {
 
             // Store Color and Depth map
             {
-                cmb.GetTemporaryRT(_ColorMap, camera.pixelWidth, camera.pixelHeight, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
-                cmb.GetTemporaryRT(_DepthMap, camera.pixelWidth, camera.pixelHeight, 32, FilterMode.Point, RenderTextureFormat.Depth);
+                cmb.GetTemporaryRT(_ColorMap, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
+                cmb.GetTemporaryRT(_DepthMap, bufferSize.x, bufferSize.y, 32, FilterMode.Point, RenderTextureFormat.Depth);
                 cmb.CopyTexture(_CameraFrameBuffer, _ColorMap);
                 cmb.CopyTexture(_DepthBuffer, _DepthMap);
                 ExcuteAndClearCommandBuffer(context, cmb);
@@ -410,8 +417,8 @@ public class NoobRenderPipeline : RenderPipeline {
                 RenderTextureFormat renderTextureFormat = RenderTextureFormat.DefaultHDR;
 
                 // Pre filter
-                int width = camera.pixelWidth / 2;
-                int height = camera.pixelHeight / 2;
+                int width = bufferSize.x / 2;
+                int height = bufferSize.y / 2;
                 NoobRenderPipelineAsset.BloomSettings bloom = asset.bloom;
                 {
                     int _BloomThreshold = Shader.PropertyToID("_BloomThreshold");
@@ -486,12 +493,8 @@ public class NoobRenderPipeline : RenderPipeline {
                         }
                     }
 
-
-                    cmb.GetTemporaryRT(_BloomResult, camera.pixelWidth, camera.pixelHeight, 0,
-                        FilterMode.Bilinear, renderTextureFormat);
-                    CombineTexture(cmb, GetPyramidShaderID(0),
-                        _CameraFrameBuffer,
-                        _BloomResult);
+                    cmb.GetTemporaryRT(_BloomResult, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, renderTextureFormat);
+                    CombineTexture(cmb, GetPyramidShaderID(0), _CameraFrameBuffer, _BloomResult);
 
                     for (int i = 0; i < bloomMaxIterations * 2; i++) {
                         cmb.ReleaseTemporaryRT(GetPyramidShaderID(i));
