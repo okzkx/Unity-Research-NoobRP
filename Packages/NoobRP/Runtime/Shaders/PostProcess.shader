@@ -16,6 +16,7 @@
         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceTransforms.hlsl"
 
         #include "../ShaderLibrary/PostProcessPasses.hlsl"
+        #include "../ShaderLibrary/FXAA.hlsl"
         ENDHLSL
 
         Pass {
@@ -85,6 +86,16 @@
 				#pragma target 3.5
 				#pragma vertex DefaultPassVertex
 				#pragma fragment FinalPassFragment
+			ENDHLSL
+		}
+    	
+		Pass {
+			Name "FXAA"
+			
+			HLSLPROGRAM
+				#pragma target 3.5
+				#pragma vertex DefaultPassVertex
+				#pragma fragment FXAAFragment
 			ENDHLSL
 		}
     }

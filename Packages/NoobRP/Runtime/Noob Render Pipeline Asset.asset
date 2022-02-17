@@ -26,3 +26,4 @@ MonoBehaviour:
   whiteBalance:
     temperature: 5
     tint: 0
+  renderScale: 0.5

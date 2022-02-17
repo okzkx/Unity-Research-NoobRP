@@ -4,6 +4,19 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
+[Serializable]
+public class FXAA {
+    [Range(0.0312f, 0.0833f)] public float fixedThreshold;
+
+    [Range(0.063f, 0.333f)] public float relativeThreshold;
+
+    [Range(0f, 1f)] public float subpixelBlending;
+
+    public static implicit operator Vector4(FXAA fxaa) {
+        return new Vector4(fxaa.fixedThreshold, fxaa.relativeThreshold, fxaa.subpixelBlending);
+    }
+}
+
 [CreateAssetMenu(menuName = "Rendering/Noob Render Pipeline Asset")]
 public class NoobRenderPipelineAsset : RenderPipelineAsset {
     public float maxShadowDistance = 100;
@@ -37,6 +50,8 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
 
     [Range(0.5f, 2f)] public float renderScale;
 
+    public FXAA fxaa;
+
     protected override RenderPipeline CreatePipeline() {
         return new NoobRenderPipeline(this);
     }
@@ -53,7 +68,8 @@ public class NoobRenderPipeline : RenderPipeline {
         BloomVertical,
         BloomCombine,
         TomeMapping,
-        Final
+        Final,
+        FXAA
     }
 
     protected override void Render(ScriptableRenderContext context, Camera[] cameras) {
@@ -357,7 +373,7 @@ public class NoobRenderPipeline : RenderPipeline {
             context.SetupCameraProperties(camera);
 
             cmb.SetGlobalVector("_BufferSize", new Vector4(1f / bufferSize.x, 1f / bufferSize.y, bufferSize.x, bufferSize.y));
-            
+
             cmb.GetTemporaryRT(_CameraFrameBuffer, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
             cmb.GetTemporaryRT(_DepthBuffer, bufferSize.x, bufferSize.y, 32, FilterMode.Point, RenderTextureFormat.Depth);
             cmb.SetRenderTarget(_CameraFrameBuffer, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
@@ -545,16 +561,35 @@ public class NoobRenderPipeline : RenderPipeline {
                     cmb.EndSample(LUT);
                 }
 
+                // Apply color LUT
+                int _ColorLUTResult = Shader.PropertyToID("_ColorLUTResult");
+                {
+                    cmb.SetGlobalVector("_LUTScaleOffset", new Vector4(1f / lutWidth, 1f / lutHeight, lutHeight - 1));
+                    cmb.GetTemporaryRT(_ColorLUTResult, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
+                    BlitTexture(cmb, _BloomResult, _ColorLUTResult, Pass.Final);
+                }
+
+                int _FXAAConfig = Shader.PropertyToID("_FXAAConfig");
+                int _AATexture = Shader.PropertyToID("_AATexture");
+                {
+                    FXAA fxaa = asset.fxaa;
+                    cmb.SetGlobalVector(_FXAAConfig, fxaa);
+                    cmb.GetTemporaryRT(_AATexture, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
+                    BlitTexture(cmb, _ColorLUTResult, _AATexture, Pass.FXAA);
+                }
+
                 // Final Blit
                 {
                     cmb.BeginSample(FINAL_BLIT);
 
                     // Blit Bloom Result to Camera target with LUT
-                    cmb.SetGlobalVector("_LUTScaleOffset", new Vector4(1f / lutWidth, 1f / lutHeight, lutHeight - 1));
-                    BlitTexture(cmb, _BloomResult, BuiltinRenderTextureType.CameraTarget, Pass.Final, camera.pixelRect);
+                    BlitTexture(cmb, _AATexture, BuiltinRenderTextureType.CameraTarget, Pass.Copy);
+                    // BlitTexture(cmb, _BloomResult, BuiltinRenderTextureType.CameraTarget, Pass.Final, camera.pixelRect);
 
                     cmb.EndSample(FINAL_BLIT);
                 }
+                cmb.ReleaseTemporaryRT(_ColorLUTResult);
+                cmb.ReleaseTemporaryRT(_AATexture);
             }
 
             ExcuteAndClearCommandBuffer(context, cmb);

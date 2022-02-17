@@ -1,4 +1,7 @@
-﻿TEXTURE2D(_PostMap);
+﻿#ifndef POST_PROCESS
+#define POST_PROCESS
+
+TEXTURE2D(_PostMap);
 SAMPLER(sampler_linear_clamp);
 
 float4 _PostMap_TexelSize;
@@ -206,3 +209,5 @@ float4 FinalPassFragment(Varyings input) : SV_TARGET
     color = ApplyLut2D(TEXTURE2D_ARGS(_ColorGradingLUT, sampler_linear_clamp), color, _LUTScaleOffset);
     return float4(color, 1);
 }
+
+#endif
