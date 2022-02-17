@@ -87,9 +87,10 @@ public class NoobRenderPipeline : RenderPipeline {
         if (!camera.TryGetCullingParameters(out ScriptableCullingParameters scp)) return;
         scp.shadowDistance = Mathf.Min(asset.maxShadowDistance, camera.farClipPlane);
         var cullingResults = context.Cull(ref scp);
-
-
+        
+        // cmb.BeginSample("lightStep");
         lightStep.Excute(ref context, ref cullingResults);
+        // cmb.EndSample("lightStep");
 
         float renderScale = asset.renderScale;
         Vector2Int bufferSize = new Vector2Int((int) (camera.pixelWidth * renderScale), (int) (camera.pixelHeight * renderScale));

@@ -35,7 +35,7 @@ public class PostprocessStep : RenderStep {
     }
 
     public void Excute(ref ScriptableRenderContext context,  Vector2Int bufferSize) {
-        CommandBuffer cmb = CommandBufferPool.Get("Postprocess");
+        CommandBuffer cmb = CommandBufferPool.Get("PostprocessStep");
         NoobRenderPipelineAsset asset = noobRenderPipeline.asset;
         int _CameraFrameBuffer = noobRenderPipeline.rendererStep._ColorAttachment;
 

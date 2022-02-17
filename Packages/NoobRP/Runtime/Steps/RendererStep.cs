@@ -35,41 +35,43 @@ public class RendererStep : RenderStep {
         // Set up shader properties
         context.SetupCameraProperties(camera);
 
-        cmb.SetGlobalVector("_BufferSize", new Vector4(1f / bufferSize.x, 1f / bufferSize.y, bufferSize.x, bufferSize.y));
+        using (new ProfilingScope(cmb, new ProfilingSampler("RendererStep"))) {
+            cmb.SetGlobalVector("_BufferSize", new Vector4(1f / bufferSize.x, 1f / bufferSize.y, bufferSize.x, bufferSize.y));
 
-        cmb.GetTemporaryRT(_ColorAttachment, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
-        cmb.GetTemporaryRT(_DepthAttachment, bufferSize.x, bufferSize.y, 32, FilterMode.Point, RenderTextureFormat.Depth);
-        cmb.SetRenderTarget(_ColorAttachment, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
-            _DepthAttachment, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
-        cmb.ClearRenderTarget(true, true, Color.clear);
-        ExcuteAndClearCommandBuffer(context, cmb);
-
-        // Draw opaque
-
-        sortingSettings.criteria = SortingCriteria.CommonOpaque;
-        drawingSettings.sortingSettings = sortingSettings;
-        filteringSettings.renderQueueRange = RenderQueueRange.opaque;
-        context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
-
-        context.DrawSkybox(camera);
-
-        // Store Color and Depth map
-        {
-            cmb.GetTemporaryRT(_ColorMap, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
-            cmb.GetTemporaryRT(_DepthMap, bufferSize.x, bufferSize.y, 32, FilterMode.Point, RenderTextureFormat.Depth);
-            cmb.CopyTexture(_ColorAttachment, _ColorMap);
-            cmb.CopyTexture(_DepthAttachment, _DepthMap);
+            cmb.GetTemporaryRT(_ColorAttachment, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
+            cmb.GetTemporaryRT(_DepthAttachment, bufferSize.x, bufferSize.y, 32, FilterMode.Point, RenderTextureFormat.Depth);
+            cmb.SetRenderTarget(_ColorAttachment, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
+                _DepthAttachment, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+            cmb.ClearRenderTarget(true, true, Color.clear);
             ExcuteAndClearCommandBuffer(context, cmb);
-        }
 
-        // Draw transparent
-        sortingSettings.criteria = SortingCriteria.CommonTransparent;
-        drawingSettings.sortingSettings = sortingSettings;
-        filteringSettings.renderQueueRange = RenderQueueRange.transparent;
-        context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
-        
-        drawSettingsDefault.sortingSettings = sortingSettings;
-        context.DrawRenderers(cullingResults, ref drawSettingsDefault, ref filteringSettings);
+            // Draw opaque
+
+            sortingSettings.criteria = SortingCriteria.CommonOpaque;
+            drawingSettings.sortingSettings = sortingSettings;
+            filteringSettings.renderQueueRange = RenderQueueRange.opaque;
+            context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
+
+            context.DrawSkybox(camera);
+
+            // Store Color and Depth map
+            {
+                cmb.GetTemporaryRT(_ColorMap, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
+                cmb.GetTemporaryRT(_DepthMap, bufferSize.x, bufferSize.y, 32, FilterMode.Point, RenderTextureFormat.Depth);
+                cmb.CopyTexture(_ColorAttachment, _ColorMap);
+                cmb.CopyTexture(_DepthAttachment, _DepthMap);
+                ExcuteAndClearCommandBuffer(context, cmb);
+            }
+
+            // Draw transparent
+            sortingSettings.criteria = SortingCriteria.CommonTransparent;
+            drawingSettings.sortingSettings = sortingSettings;
+            filteringSettings.renderQueueRange = RenderQueueRange.transparent;
+            context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
+
+            drawSettingsDefault.sortingSettings = sortingSettings;
+            context.DrawRenderers(cullingResults, ref drawSettingsDefault, ref filteringSettings);
+        }
 
         ExcuteAndClearCommandBuffer(context, cmb);
     }

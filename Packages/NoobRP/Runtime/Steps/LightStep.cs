@@ -4,7 +4,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-public class LightStep : RenderStep{
+public class LightStep : RenderStep {
     const int directionalLightCapacity = 1;
     const int spotLightCapacity = 4;
     const int pointLightCapacity = 2;
@@ -28,7 +28,7 @@ public class LightStep : RenderStep{
 
     public void Excute(ref ScriptableRenderContext context, ref CullingResults cullingResults) {
         var cmb = CommandBufferPool.Get(stepName);
-        
+        // cmb.BeginSample(stepName);
         // Lights Setup
         {
             int directionalLightCount = 0;
@@ -110,6 +110,7 @@ public class LightStep : RenderStep{
 
         // Render Directianl Light ShadowMap
         // if (isGameCam) 
+        using(new ProfilingScope(cmb, new ProfilingSampler(DIRECTIONAL_SHADOW_MAP)))
         {
             // cmb.BeginSample(DIRECTIONAL_SHADOW_MAP);
 
@@ -175,6 +176,7 @@ public class LightStep : RenderStep{
 
         // Render Spot and Point Light ShadowMap
         // if (false) 
+        using(new ProfilingScope(cmb, new ProfilingSampler(SPOT_POINT_SHADOW_MAP)))
         {
             // cmb.BeginSample(SPOT_POINT_SHADOW_MAP);
 
@@ -249,13 +251,9 @@ public class LightStep : RenderStep{
             }
 
             cmb.SetGlobalMatrixArray("_WorldToShadowMapCoordMatrices", _WorldToShadowMapCoordMatrices);
-
-            // cmb.EndSample(SPOT_POINT_SHADOW_MAP);
-
-            ExcuteAndClearCommandBuffer(context, cmb);
         }
-
-        // cmb.EndSample("ShadowMap");
+        // cmb.EndSample(stepName);
+        ExcuteAndClearCommandBuffer(context, cmb);
         CommandBufferPool.Release(cmb);
     }
 
