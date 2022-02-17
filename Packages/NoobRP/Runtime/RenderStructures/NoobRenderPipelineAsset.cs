@@ -1,6 +1,4 @@
 using System;
-using Unity.Collections;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -20,8 +18,7 @@ public class FXAA {
 [CreateAssetMenu(menuName = "Rendering/Noob Render Pipeline Asset")]
 public class NoobRenderPipelineAsset : RenderPipelineAsset {
     public float maxShadowDistance = 100;
-    public bool enablePostProcess => bloom != null && bloom.intensity > 0;
-
+    
     [Serializable]
     public class BloomSettings {
         [Min(0f)] public float threshold = 0.5f;
@@ -78,6 +75,11 @@ public class NoobRenderPipeline : RenderPipeline {
     }
 
     private void Render(ScriptableRenderContext context, Camera camera) {
+        
+        if ((camera.cameraType & CameraType.SceneView) != 0) {
+            ScriptableRenderContext.EmitWorldGeometryForSceneView(camera); //This makes the UI Canvas geometry appear on scene view
+        }
+
         camera.allowHDR = true;
         CommandBuffer cmb = CommandBufferPool.Get();
 
@@ -92,7 +94,7 @@ public class NoobRenderPipeline : RenderPipeline {
         float renderScale = asset.renderScale;
         Vector2Int bufferSize = new Vector2Int((int) (camera.pixelWidth * renderScale), (int) (camera.pixelHeight * renderScale));
 
-        rendererStep.Excute(ref context, camera, bufferSize,ref cullingResults);
+        rendererStep.Excute(ref context, camera, bufferSize, ref cullingResults);
 
 
 #if UNITY_EDITOR
@@ -102,7 +104,7 @@ public class NoobRenderPipeline : RenderPipeline {
 #endif
 
         postprocessStep.Excute(ref context, bufferSize);
-        
+
 #if UNITY_EDITOR
         if (UnityEditor.Handles.ShouldRenderGizmos()) {
             context.DrawGizmos(camera, GizmoSubset.PostImageEffects);

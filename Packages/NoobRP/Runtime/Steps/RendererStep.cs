@@ -3,6 +3,7 @@ using UnityEngine.Rendering;
 
 public class RendererStep : RenderStep {
     public readonly ShaderTagId NoobRPLightMode = new ShaderTagId("Both");
+    public readonly ShaderTagId m_PassNameDefault = new ShaderTagId("SRPDefaultUnlit"); //The shader pass tag for replacing shaders without pass
     public readonly int _ColorAttachment = Shader.PropertyToID("_CameraFrameBuffer");
     public readonly int _DepthAttachment = Shader.PropertyToID("_DepthBuffer");
     public readonly int _ColorMap = Shader.PropertyToID("_ColorMap");
@@ -23,6 +24,8 @@ public class RendererStep : RenderStep {
             PerObjectData.LightProbe | PerObjectData.OcclusionProbe |
             PerObjectData.LightProbeProxyVolume |
             PerObjectData.OcclusionProbeProxyVolume;
+        DrawingSettings drawSettingsDefault = drawingSettings;
+        drawSettingsDefault.SetShaderPassName(1, m_PassNameDefault);
 
         // Filter Setting
         var filteringSettings = new FilteringSettings(RenderQueueRange.opaque);
@@ -64,6 +67,9 @@ public class RendererStep : RenderStep {
         drawingSettings.sortingSettings = sortingSettings;
         filteringSettings.renderQueueRange = RenderQueueRange.transparent;
         context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
+        
+        drawSettingsDefault.sortingSettings = sortingSettings;
+        context.DrawRenderers(cullingResults, ref drawSettingsDefault, ref filteringSettings);
 
         ExcuteAndClearCommandBuffer(context, cmb);
     }
