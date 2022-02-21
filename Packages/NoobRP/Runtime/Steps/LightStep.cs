@@ -13,6 +13,17 @@ public class LightStep : RenderStep {
 
     readonly int _DirectionalShadowAtlas = Shader.PropertyToID("_DirectionalShadowAtlas");
     readonly int _SpotPointShadowAtlas = Shader.PropertyToID("_SpotPointShadowAtlas");
+    readonly int _DirectionalLightColor = Shader.PropertyToID("_DirectionalLightColor");
+    readonly int _DirectionalLightDirection = Shader.PropertyToID("_DirectionalLightDirection");
+    readonly int _SpotLightCount = Shader.PropertyToID("_SpotLightCount");
+    readonly int _PointLightCount = Shader.PropertyToID("_PointLightCount");
+    readonly int _LightPositions = Shader.PropertyToID("_LightPositions");
+    readonly int _LightColors = Shader.PropertyToID("_LightColors");
+    readonly int _LightDirections = Shader.PropertyToID("_LightDirections");
+    readonly int _DirectionalShadowMatrices = Shader.PropertyToID("_DirectionalShadowMatrices");
+    readonly int _CullingSpheres = Shader.PropertyToID("_CullingSpheres");
+    readonly int _WorldToShadowMapCoordMatrices = Shader.PropertyToID("_WorldToShadowMapCoordMatrices");
+
 
     public string stepName = "LightStep";
     NoobRenderPipeline noobRenderPipeline;
@@ -28,60 +39,58 @@ public class LightStep : RenderStep {
 
     public void Excute(ref ScriptableRenderContext context, ref CullingResults cullingResults) {
         var cmb = CommandBufferPool.Get(stepName);
-        // cmb.BeginSample(stepName);
-        // Lights Setup
         {
             int directionalLightCount = 0;
-            int _SpotLightCount = 0;
-            int _PointLightCount = 0;
+            int spotLightCount = 0;
+            int pointLightCount = 0;
 
-            Color _DirectionalLightColor = Color.black;
-            Vector4 _DirectionalLightDirection = Vector4.zero;
+            Color directionalLightColor = Color.black;
+            Vector4 directionalLightDirection = Vector4.zero;
 
-            Vector4[] _LightColors = new Vector4[spotLightCapacity + pointLightCapacity];
-            Vector4[] _LightPositions = new Vector4[spotLightCapacity + pointLightCapacity];
-            Vector4[] _LightDirections = new Vector4[spotLightCapacity + pointLightCapacity];
+            Vector4[] lightColors = new Vector4[spotLightCapacity + pointLightCapacity];
+            Vector4[] lightPositions = new Vector4[spotLightCapacity + pointLightCapacity];
+            Vector4[] lightDirections = new Vector4[spotLightCapacity + pointLightCapacity];
 
             NativeArray<VisibleLight> visibleLights = cullingResults.visibleLights;
             foreach (var visibleLight in visibleLights) {
                 switch (visibleLight.lightType) {
                     case LightType.Spot:
-                        if (_SpotLightCount < spotLightCapacity) {
-                            int index = ToSpotLightIndex(_SpotLightCount);
+                        if (spotLightCount < spotLightCapacity) {
+                            int index = ToSpotLightIndex(spotLightCount);
 
-                            _LightColors[index] = visibleLight.finalColor;
+                            lightColors[index] = visibleLight.finalColor;
 
                             Vector4 direction = visibleLight.localToWorldMatrix.GetColumn(2);
                             direction.w = math.radians(visibleLight.spotAngle);
-                            _LightDirections[index] = direction;
+                            lightDirections[index] = direction;
 
                             Vector4 position = visibleLight.localToWorldMatrix.GetColumn(3);
                             position.w = visibleLight.range;
-                            _LightPositions[index] = position;
+                            lightPositions[index] = position;
 
-                            _SpotLightCount++;
+                            spotLightCount++;
                         }
 
                         break;
                     case LightType.Directional:
                         if (directionalLightCount < directionalLightCapacity) {
-                            _DirectionalLightColor = visibleLight.finalColor;
-                            _DirectionalLightDirection = -visibleLight.localToWorldMatrix.GetColumn(2);
+                            directionalLightColor = visibleLight.finalColor;
+                            directionalLightDirection = -visibleLight.localToWorldMatrix.GetColumn(2);
                             directionalLightCount++;
                         }
 
                         break;
                     case LightType.Point:
-                        if (_PointLightCount < pointLightCapacity) {
-                            int index = ToPointLightIndex(_PointLightCount);
+                        if (pointLightCount < pointLightCapacity) {
+                            int index = ToPointLightIndex(pointLightCount);
 
-                            _LightColors[index] = visibleLight.finalColor;
+                            lightColors[index] = visibleLight.finalColor;
 
                             Vector4 position = visibleLight.localToWorldMatrix.GetColumn(3);
                             position.w = visibleLight.range;
-                            _LightPositions[index] = position;
+                            lightPositions[index] = position;
 
-                            _PointLightCount++;
+                            pointLightCount++;
                         }
 
                         break;
@@ -94,15 +103,15 @@ public class LightStep : RenderStep {
                 }
             }
 
-            cmb.SetGlobalColor("_DirectionalLightColor", _DirectionalLightColor);
-            cmb.SetGlobalVector("_DirectionalLightDirection", _DirectionalLightDirection);
+            cmb.SetGlobalColor(_DirectionalLightColor, directionalLightColor);
+            cmb.SetGlobalVector(_DirectionalLightDirection, directionalLightDirection);
 
-            cmb.SetGlobalInt("_SpotLightCount", _SpotLightCount);
-            cmb.SetGlobalInt("_PointLightCount", _PointLightCount);
+            cmb.SetGlobalInt(_SpotLightCount, spotLightCount);
+            cmb.SetGlobalInt(_PointLightCount, pointLightCount);
 
-            cmb.SetGlobalVectorArray("_LightPositions", _LightPositions);
-            cmb.SetGlobalVectorArray("_LightColors", _LightColors);
-            cmb.SetGlobalVectorArray("_LightDirections", _LightDirections);
+            cmb.SetGlobalVectorArray(_LightPositions, lightPositions);
+            cmb.SetGlobalVectorArray(_LightColors, lightColors);
+            cmb.SetGlobalVectorArray(_LightDirections, lightDirections);
             ExcuteAndClearCommandBuffer(context, cmb);
         }
 
@@ -110,15 +119,11 @@ public class LightStep : RenderStep {
 
         // Render Directianl Light ShadowMap
         // if (isGameCam) 
-        using(new ProfilingScope(cmb, new ProfilingSampler(DIRECTIONAL_SHADOW_MAP)))
-        {
-            // cmb.BeginSample(DIRECTIONAL_SHADOW_MAP);
+        using (new ProfilingScope(cmb, new ProfilingSampler(DIRECTIONAL_SHADOW_MAP))) {
 
             int rtWidth = 1024;
-            cmb.GetTemporaryRT(_DirectionalShadowAtlas, rtWidth, rtWidth,
-                32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
-            cmb.SetRenderTarget(_DirectionalShadowAtlas,
-                RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+            cmb.GetTemporaryRT(_DirectionalShadowAtlas, rtWidth, rtWidth, 32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
+            cmb.SetRenderTarget(_DirectionalShadowAtlas, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
             cmb.ClearRenderTarget(true, false, Color.clear);
 
             int lightIndex = -1;
@@ -152,7 +157,6 @@ public class LightStep : RenderStep {
                     cmb.SetViewport(viewPort);
 
                     dirShadowMatrices[splitIndex] = ConvertToAtlasMatrix(projMatrix * viewMatrix, offset, sideSplitCount);
-                    // cmb.SetGlobalVector(shadowAtlasSizeId, new Vector4(atlasSize, 1f / atlasSize));
                     cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
                     ExcuteAndClearCommandBuffer(context, cmb);
 
@@ -165,21 +169,15 @@ public class LightStep : RenderStep {
                     context.DrawShadows(ref shadowDrawingSettings);
                 }
 
-                cmb.SetGlobalMatrixArray("_DirectionalShadowMatrices", dirShadowMatrices);
-                cmb.SetGlobalVectorArray("_CullingSpheres", cullingSpheres);
+                cmb.SetGlobalMatrixArray(_DirectionalShadowMatrices, dirShadowMatrices);
+                cmb.SetGlobalVectorArray(_CullingSpheres, cullingSpheres);
             }
-
-            // cmb.EndSample(DIRECTIONAL_SHADOW_MAP);
 
             ExcuteAndClearCommandBuffer(context, cmb);
         }
 
         // Render Spot and Point Light ShadowMap
-        // if (false) 
-        using(new ProfilingScope(cmb, new ProfilingSampler(SPOT_POINT_SHADOW_MAP)))
-        {
-            // cmb.BeginSample(SPOT_POINT_SHADOW_MAP);
-
+        using (new ProfilingScope(cmb, new ProfilingSampler(SPOT_POINT_SHADOW_MAP))) {
             int rtWidth = 1024;
             cmb.GetTemporaryRT(_SpotPointShadowAtlas, rtWidth, rtWidth,
                 32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
@@ -194,7 +192,7 @@ public class LightStep : RenderStep {
             int spotLightCount = 0;
             int pointLightCount = 0;
 
-            Matrix4x4[] _WorldToShadowMapCoordMatrices = new Matrix4x4[16];
+            Matrix4x4[] worldToShadowMapCoordMatrices = new Matrix4x4[16];
 
             NativeArray<VisibleLight> visibleLights = cullingResults.visibleLights;
             for (int lightIndex = 0; lightIndex < visibleLights.Length; lightIndex++) {
@@ -209,7 +207,7 @@ public class LightStep : RenderStep {
 
                         Rect viewPort = GetSpotShadowMapViewport(spotLightCount, sideSplitCount, tileWidth);
                         Matrix4x4 worldToShadowMapCoordMatrix = CreateWorldToShadowMapCoordMatrix(viewMatrix, projMatrix, viewPort);
-                        _WorldToShadowMapCoordMatrices[spotLightCount] = worldToShadowMapCoordMatrix;
+                        worldToShadowMapCoordMatrices[spotLightCount] = worldToShadowMapCoordMatrix;
 
                         cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
                         cmb.SetViewport(viewPort);
@@ -233,7 +231,7 @@ public class LightStep : RenderStep {
                             int tileIndex = spotLightCapacity + pointLightCount * faceCount + faceIndex;
                             Rect viewPort = GetSpotShadowMapViewport(tileIndex, sideSplitCount, tileWidth);
                             Matrix4x4 worldToShadowMapCoordMatrix = CreateWorldToShadowMapCoordMatrix(viewMatrix, projMatrix, viewPort);
-                            _WorldToShadowMapCoordMatrices[tileIndex] = worldToShadowMapCoordMatrix;
+                            worldToShadowMapCoordMatrices[tileIndex] = worldToShadowMapCoordMatrix;
 
                             cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
                             cmb.SetViewport(viewPort);
@@ -250,9 +248,9 @@ public class LightStep : RenderStep {
                 }
             }
 
-            cmb.SetGlobalMatrixArray("_WorldToShadowMapCoordMatrices", _WorldToShadowMapCoordMatrices);
+            cmb.SetGlobalMatrixArray(_WorldToShadowMapCoordMatrices, worldToShadowMapCoordMatrices);
         }
-        // cmb.EndSample(stepName);
+
         ExcuteAndClearCommandBuffer(context, cmb);
         CommandBufferPool.Release(cmb);
     }
@@ -271,15 +269,6 @@ public class LightStep : RenderStep {
         if (SystemInfo.usesReversedZBuffer) {
             vp.SetRow(2, -vp.GetRow(2));
         }
-
-        // Vector2 position = viewPort.position / 1024;
-        // Vector2 side = new Vector2(viewPort.width, viewPort.height)  / 1024;
-        //
-        // float3 scale = math.float3(0.5f * side.x, 0.5f * side.y, 1);
-        // Matrix4x4 m = Matrix4x4.Scale(scale) * vp;
-        // m = Matrix4x4.Translate(math.float3(scale.x + position.x, scale.y + position.y, 0)) * m;
-        //
-        // return m;
 
         return vp;
     }
