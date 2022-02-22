@@ -2,19 +2,9 @@ Shader "NoobRP/Particle/UnLit" {
     Properties {
         [MainColor]_BaseColor("_BaseColor",Color)=(1,1,1,1)
         [MainTexture]_BaseMap("_BaseMap",2D)="white"{}
-        _CutOff ("_CutOff", Range(0,1)) = 0.1
-        _EnvWeight ("_EnvWeight", Range(0,1)) =0
-
-        [HDR]_EmissionColor("_EmissionColor", Color) = (1,1,1,1)
-        [NoScaleOffset] _EmissionMap("EmissionMap",2D)="white"{}
-        [NoScaleOffset] _MaskMap("Mask (MODS)", 2D) = "white" {}
-        _Distortion("_Distortion", Range(0, 0.05)) = 0.005
         [NoScaleOffset] _NormalMap("Normals", 2D) = "bump" {}
-
-        _Emission("Emission", Range(0, 1)) = 0
-        _Metallic ("Metallic", Range(0, 1)) = 0
-        _Occlusion ("Occlusion", Range(0, 1)) = 0
-        _Smoothness ("Smoothness", Range(0, 1)) = 0.5
+        _Distortion("_Distortion", Range(0, 0.05)) = 0.005
+        _BufferSize ("BufferSize", Vector) = (1,1,1,1)
     }
 
     HLSLINCLUDE

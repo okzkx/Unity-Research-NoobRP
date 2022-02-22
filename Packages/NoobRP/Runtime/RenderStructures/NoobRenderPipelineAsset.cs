@@ -86,7 +86,7 @@ public class NoobRenderPipeline : RenderPipeline {
         // Cullling
         if (!camera.TryGetCullingParameters(out ScriptableCullingParameters scp)) return;
         scp.shadowDistance = Mathf.Min(asset.maxShadowDistance, camera.farClipPlane);
-        var cullingResults = context.Cull(ref scp);
+        CullingResults cullingResults = context.Cull(ref scp);
         
         lightStep.Excute(ref context, ref cullingResults);
 
