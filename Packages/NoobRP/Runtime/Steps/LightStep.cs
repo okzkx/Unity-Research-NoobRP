@@ -8,8 +8,8 @@ public class LightStep : RenderStep {
     const int directionalLightCapacity = 1;
     const int spotLightCapacity = 4;
     const int pointLightCapacity = 2;
-    const string DIRECTIONAL_SHADOW_MAP = "ShadowMap.Directional";
-    const string SPOT_POINT_SHADOW_MAP = "ShadowMap.SpotPoint";
+    const string DIRECTIONAL_SHADOW_MAP = "Directional light Shadow Mapping";
+    const string SPOT_POINT_SHADOW_MAP = "Spot Point light Shadow Mapping";
 
     readonly int _DirectionalShadowAtlas = Shader.PropertyToID("_DirectionalShadowAtlas");
     readonly int _SpotPointShadowAtlas = Shader.PropertyToID("_SpotPointShadowAtlas");
@@ -27,6 +27,8 @@ public class LightStep : RenderStep {
 
     public string stepName = "LightStep";
     NoobRenderPipeline noobRenderPipeline;
+    int directionalLightShadowMapResolution = 1024;
+    int spotPointLightShadowMapResolution = 1024;
 
     public LightStep(NoobRenderPipeline noobRenderPipeline) {
         this.noobRenderPipeline = noobRenderPipeline;
@@ -39,6 +41,8 @@ public class LightStep : RenderStep {
 
     public void Excute(ref ScriptableRenderContext context, ref CullingResults cullingResults) {
         var cmb = CommandBufferPool.Get(stepName);
+
+        // Lights Data setting
         {
             int directionalLightCount = 0;
             int spotLightCount = 0;
@@ -115,19 +119,14 @@ public class LightStep : RenderStep {
             ExcuteAndClearCommandBuffer(context, cmb);
         }
 
-        // cmb.BeginSample("ShadowMap");
-
-        // Render Directianl Light ShadowMap
-        // if (isGameCam) 
+        // Direction light shadow map
         using (new ProfilingScope(cmb, new ProfilingSampler(DIRECTIONAL_SHADOW_MAP))) {
-
-            int rtWidth = 1024;
-            cmb.GetTemporaryRT(_DirectionalShadowAtlas, rtWidth, rtWidth, 32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
+            cmb.GetTemporaryRT(_DirectionalShadowAtlas, directionalLightShadowMapResolution, directionalLightShadowMapResolution, 32, FilterMode.Point, RenderTextureFormat.Shadowmap);
             cmb.SetRenderTarget(_DirectionalShadowAtlas, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
             cmb.ClearRenderTarget(true, false, Color.clear);
 
+            // Find directional light index
             int lightIndex = -1;
-
             NativeArray<VisibleLight> visibleLights = cullingResults.visibleLights;
             for (int i = 0; i < visibleLights.Length; i++) {
                 if (visibleLights[i].lightType == LightType.Directional) {
@@ -138,7 +137,7 @@ public class LightStep : RenderStep {
             if (lightIndex >= 0 && cullingResults.GetShadowCasterBounds(lightIndex, out Bounds bounds)) {
                 int sideSplitCount = 2;
                 int splitCount = sideSplitCount * sideSplitCount;
-                int tileWidth = rtWidth / sideSplitCount;
+                int tileWidth = directionalLightShadowMapResolution / sideSplitCount;
                 float shadowNearPlaneOffset = 0.003f;
                 Matrix4x4[] dirShadowMatrices = new Matrix4x4[splitCount];
                 Vector4[] cullingSpheres = new Vector4[splitCount];
@@ -151,12 +150,11 @@ public class LightStep : RenderStep {
                         out Matrix4x4 projMatrix, out ShadowSplitData shadowSplitData
                     );
 
-
-                    Vector2 offset = new Vector2(splitIndex % sideSplitCount, splitIndex / sideSplitCount);
+                    Vector2Int offset = new Vector2Int(splitIndex % sideSplitCount, splitIndex / sideSplitCount);
                     Rect viewPort = new Rect(offset.x * tileWidth, offset.y * tileWidth, tileWidth, tileWidth);
                     cmb.SetViewport(viewPort);
 
-                    dirShadowMatrices[splitIndex] = ConvertToAtlasMatrix(projMatrix * viewMatrix, offset, sideSplitCount);
+                    dirShadowMatrices[splitIndex] = GetDirectionalLightCascadeShadowMatrix(viewMatrix, projMatrix, offset, sideSplitCount);
                     cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
                     ExcuteAndClearCommandBuffer(context, cmb);
 
@@ -178,16 +176,14 @@ public class LightStep : RenderStep {
 
         // Render Spot and Point Light ShadowMap
         using (new ProfilingScope(cmb, new ProfilingSampler(SPOT_POINT_SHADOW_MAP))) {
-            int rtWidth = 1024;
-            cmb.GetTemporaryRT(_SpotPointShadowAtlas, rtWidth, rtWidth,
-                32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
-            cmb.SetRenderTarget(_SpotPointShadowAtlas,
-                RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+            int width = spotPointLightShadowMapResolution;
+            cmb.GetTemporaryRT(_SpotPointShadowAtlas, width, width,32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
+            cmb.SetRenderTarget(_SpotPointShadowAtlas,RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
             cmb.ClearRenderTarget(true, false, Color.clear);
 
             int sideSplitCount = 4;
             int splitCount = sideSplitCount * sideSplitCount;
-            int tileWidth = rtWidth / sideSplitCount;
+            int tileWidth = width / sideSplitCount;
 
             int spotLightCount = 0;
             int pointLightCount = 0;
@@ -253,6 +249,22 @@ public class LightStep : RenderStep {
 
         ExcuteAndClearCommandBuffer(context, cmb);
         CommandBufferPool.Release(cmb);
+    }
+
+    private Matrix4x4 GetDirectionalLightCascadeShadowMatrix(Matrix4x4 viewMatrix, Matrix4x4 projMatrix, Vector2Int offset, int sideSplitCount) {
+        Matrix4x4 m = projMatrix * viewMatrix;
+
+        if (SystemInfo.usesReversedZBuffer) {
+            Vector3 forwardDir = -m.GetRow(2);
+            m.SetRow(2, forwardDir);
+        }
+
+        float width = 1f / sideSplitCount;
+        
+        m = Matrix4x4.Scale(math.float3(0.5f * width, 0.5f  * width, 0.5f)) * m;
+        m = Matrix4x4.Translate(math.float3(width * (0.5f + offset.x), width * (0.5f + offset.y), 0.5f)) * m;
+
+        return m;
     }
 
     int ToSpotLightIndex(int index) {

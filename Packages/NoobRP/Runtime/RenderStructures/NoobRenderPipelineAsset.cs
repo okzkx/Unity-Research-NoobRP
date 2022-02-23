@@ -17,8 +17,9 @@ public class FXAA {
 
 [CreateAssetMenu(menuName = "Rendering/Noob Render Pipeline Asset")]
 public class NoobRenderPipelineAsset : RenderPipelineAsset {
+    public bool srpBatch = false;
     public float maxShadowDistance = 100;
-    
+
     [Serializable]
     public class BloomSettings {
         [Min(0f)] public float threshold = 0.5f;
@@ -72,10 +73,11 @@ public class NoobRenderPipeline : RenderPipeline {
         lightStep = new LightStep(this);
         rendererStep = new RendererStep(this);
         postprocessStep = new PostprocessStep(this);
+
+        GraphicsSettings.useScriptableRenderPipelineBatching = asset.srpBatch;
     }
 
     private void Render(ScriptableRenderContext context, Camera camera) {
-        
         if ((camera.cameraType & CameraType.SceneView) != 0) {
             ScriptableRenderContext.EmitWorldGeometryForSceneView(camera); //This makes the UI Canvas geometry appear on scene view
         }
@@ -87,14 +89,13 @@ public class NoobRenderPipeline : RenderPipeline {
         if (!camera.TryGetCullingParameters(out ScriptableCullingParameters scp)) return;
         scp.shadowDistance = Mathf.Min(asset.maxShadowDistance, camera.farClipPlane);
         CullingResults cullingResults = context.Cull(ref scp);
-        
+
         lightStep.Excute(ref context, ref cullingResults);
 
         float renderScale = asset.renderScale;
         Vector2Int bufferSize = new Vector2Int((int) (camera.pixelWidth * renderScale), (int) (camera.pixelHeight * renderScale));
 
         rendererStep.Excute(ref context, camera, bufferSize, ref cullingResults);
-
 
 #if UNITY_EDITOR
         if (UnityEditor.Handles.ShouldRenderGizmos()) {

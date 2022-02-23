@@ -9,7 +9,14 @@ public class RendererStep : RenderStep {
     public readonly int _ColorMap = Shader.PropertyToID("_ColorMap");
     public readonly int _DepthMap = Shader.PropertyToID("_DepthMap");
 
+    public readonly ShaderTagId[] multiPassTags = new ShaderTagId[10];
+
+    private NoobRenderPipeline noobRenderPipeline;
+
     public RendererStep(NoobRenderPipeline noobRenderPipeline) {
+        for (int i = 0; i < multiPassTags.Length; i++) {
+            multiPassTags[i] = new ShaderTagId("MultiPass" + i);
+        }
     }
 
     // Render Renderers
@@ -24,8 +31,6 @@ public class RendererStep : RenderStep {
             PerObjectData.LightProbe | PerObjectData.OcclusionProbe |
             PerObjectData.LightProbeProxyVolume |
             PerObjectData.OcclusionProbeProxyVolume;
-        DrawingSettings drawSettingsDefault = drawingSettings;
-        drawSettingsDefault.SetShaderPassName(1, m_PassNameDefault);
 
         // Filter Setting
         var filteringSettings = new FilteringSettings(RenderQueueRange.opaque);
@@ -67,10 +72,13 @@ public class RendererStep : RenderStep {
             sortingSettings.criteria = SortingCriteria.CommonTransparent;
             drawingSettings.sortingSettings = sortingSettings;
             filteringSettings.renderQueueRange = RenderQueueRange.transparent;
-            context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
 
-            drawSettingsDefault.sortingSettings = sortingSettings;
-            context.DrawRenderers(cullingResults, ref drawSettingsDefault, ref filteringSettings);
+            for (int i = 0; i < multiPassTags.Length; i++) {
+                drawingSettings.SetShaderPassName(i + 1, multiPassTags[i]);
+            }
+            
+            context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
+            
         }
 
         ExcuteAndClearCommandBuffer(context, cmb);

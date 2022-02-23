@@ -9,7 +9,7 @@
 
 float4x4 _DirectionalShadowMatrices[SPLIT_COUNT];
 TEXTURE2D_SHADOW(_DirectionalShadowAtlas);
-#define SHADOW_SAMPLER sampler_linear_clamp_compare
+#define SHADOW_SAMPLER sampler_point_clamp
 SAMPLER_CMP(SHADOW_SAMPLER);
 
 float4 _CullingSpheres[SPLIT_COUNT];
