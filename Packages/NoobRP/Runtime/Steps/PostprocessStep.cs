@@ -45,105 +45,101 @@ public class PostprocessStep : RenderStep {
         int _CameraFrameBuffer = noobRenderPipeline.rendererStep._ColorAttachment;
 
         // Bloom
-        cmb.BeginSample(BLOOM);
+        using (new ProfilingScope(cmb, new ProfilingSampler(BLOOM))) {
+            RenderTextureFormat renderTextureFormat = RenderTextureFormat.DefaultHDR;
 
-        RenderTextureFormat renderTextureFormat = RenderTextureFormat.DefaultHDR;
+            // Pre filter
+            int width = bufferSize.x / 2;
+            int height = bufferSize.y / 2;
+            NoobRenderPipelineAsset.BloomSettings bloom = asset.bloom;
+            {
+                int _BloomThreshold = Shader.PropertyToID("_BloomThreshold");
 
-        // Pre filter
-        int width = bufferSize.x / 2;
-        int height = bufferSize.y / 2;
-        NoobRenderPipelineAsset.BloomSettings bloom = asset.bloom;
-        {
-            int _BloomThreshold = Shader.PropertyToID("_BloomThreshold");
+                Vector4 threshold;
+                threshold.x = Mathf.GammaToLinearSpace(bloom.threshold);
+                threshold.y = threshold.x * bloom.thresholdKnee;
+                threshold.z = 2f * threshold.y;
+                threshold.w = 0.25f / (threshold.y + 0.00001f);
+                threshold.y -= threshold.x;
+                cmb.SetGlobalVector(_BloomThreshold, threshold);
 
-            Vector4 threshold;
-            threshold.x = Mathf.GammaToLinearSpace(bloom.threshold);
-            threshold.y = threshold.x * bloom.thresholdKnee;
-            threshold.z = 2f * threshold.y;
-            threshold.w = 0.25f / (threshold.y + 0.00001f);
-            threshold.y -= threshold.x;
-            cmb.SetGlobalVector(_BloomThreshold, threshold);
-
-            cmb.GetTemporaryRT(_BloomPrefilter, width, height, 0, FilterMode.Bilinear, renderTextureFormat);
-            BlitTexture(cmb, _CameraFrameBuffer, _BloomPrefilter, Pass.BloomPrefilter);
-        }
-
-        // Bloom Pyramid
-        {
-            int GetPyramidShaderID(int id) {
-                return Shader.PropertyToID(BLOOM_PYRAMID + id);
+                cmb.GetTemporaryRT(_BloomPrefilter, width, height, 0, FilterMode.Bilinear, renderTextureFormat);
+                BlitTexture(cmb, _CameraFrameBuffer, _BloomPrefilter, Pass.BloomPrefilter);
             }
 
-            width /= 2;
-            height /= 2;
-            int bloomMaxIterations = 4;
-            int bloomScaleLimit = 2;
-
-            // Pyramid Generate
+            // Bloom Pyramid
             {
-                int from = _BloomPrefilter;
-                int i = 0;
-                for (; i < bloomMaxIterations; i++) {
-                    if (height < bloomScaleLimit || width < bloomScaleLimit) {
-                        break;
+                int GetPyramidShaderID(int id) {
+                    return Shader.PropertyToID(BLOOM_PYRAMID + id);
+                }
+
+                width /= 2;
+                height /= 2;
+                int bloomMaxIterations = 4;
+                int bloomScaleLimit = 2;
+
+                // Pyramid Generate
+                {
+                    int from = _BloomPrefilter;
+                    int i = 0;
+                    for (; i < bloomMaxIterations; i++) {
+                        if (height < bloomScaleLimit || width < bloomScaleLimit) {
+                            break;
+                        }
+
+                        int to = Shader.PropertyToID(BLOOM_PYRAMID + (i * 2 + 1));
+                        int intermidiate = Shader.PropertyToID(BLOOM_PYRAMID + i * 2);
+
+                        cmb.GetTemporaryRT(intermidiate, width, height, 0, FilterMode.Bilinear, renderTextureFormat);
+                        cmb.GetTemporaryRT(to, width, height, 0, FilterMode.Bilinear, renderTextureFormat);
+                        BlitTexture(cmb, from, intermidiate, Pass.BloomHorizontal);
+                        BlitTexture(cmb, intermidiate, to, Pass.BloomVertical);
+
+                        from = to;
+                        width /= 2;
+                        height /= 2;
                     }
-
-                    int to = Shader.PropertyToID(BLOOM_PYRAMID + (i * 2 + 1));
-                    int intermidiate = Shader.PropertyToID(BLOOM_PYRAMID + i * 2);
-
-                    cmb.GetTemporaryRT(intermidiate, width, height, 0, FilterMode.Bilinear, renderTextureFormat);
-                    cmb.GetTemporaryRT(to, width, height, 0, FilterMode.Bilinear, renderTextureFormat);
-                    BlitTexture(cmb, from, intermidiate, Pass.BloomHorizontal);
-                    BlitTexture(cmb, intermidiate, to, Pass.BloomVertical);
-
-                    from = to;
-                    width /= 2;
-                    height /= 2;
                 }
-            }
 
-            // Pyramid Combine
-            {
-                int c1Id = bloomMaxIterations * 2 - 1;
-                int c2Id = c1Id - 2;
-                int c3Id = c2Id - 1;
+                // Pyramid Combine
+                {
+                    int c1Id = bloomMaxIterations * 2 - 1;
+                    int c2Id = c1Id - 2;
+                    int c3Id = c2Id - 1;
 
-                cmb.SetGlobalFloat(_BloomIntensity, bloom.intensity);
+                    cmb.SetGlobalFloat(_BloomIntensity, bloom.intensity);
 
-                while (c1Id > 0) {
-                    int c1 = GetPyramidShaderID(c1Id);
-                    int c2 = GetPyramidShaderID(c2Id);
-                    int c3 = GetPyramidShaderID(c3Id);
+                    while (c1Id > 0) {
+                        int c1 = GetPyramidShaderID(c1Id);
+                        int c2 = GetPyramidShaderID(c2Id);
+                        int c3 = GetPyramidShaderID(c3Id);
 
-                    cmb.SetGlobalTexture(_PostMap, c1);
-                    cmb.SetGlobalTexture(_PostMap2, c2);
-                    cmb.SetRenderTarget(c3, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
-                    cmb.DrawProcedural(Matrix4x4.identity, postProcessMaterial, (int) Pass.BloomCombine, MeshTopology.Triangles, 3);
+                        cmb.SetGlobalTexture(_PostMap, c1);
+                        cmb.SetGlobalTexture(_PostMap2, c2);
+                        cmb.SetRenderTarget(c3, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+                        cmb.DrawProcedural(Matrix4x4.identity, postProcessMaterial, (int) Pass.BloomCombine, MeshTopology.Triangles, 3);
 
-                    c1Id = c3Id;
-                    c2Id = c1Id - 1;
-                    c3Id = c2Id - 1;
+                        c1Id = c3Id;
+                        c2Id = c1Id - 1;
+                        c3Id = c2Id - 1;
+                    }
                 }
-            }
 
-            cmb.GetTemporaryRT(_BloomResult, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, renderTextureFormat);
-            CombineTexture(cmb, GetPyramidShaderID(0), _CameraFrameBuffer, _BloomResult);
+                cmb.GetTemporaryRT(_BloomResult, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, renderTextureFormat);
+                CombineTexture(cmb, GetPyramidShaderID(0), _CameraFrameBuffer, _BloomResult);
 
-            for (int i = 0; i < bloomMaxIterations * 2; i++) {
-                cmb.ReleaseTemporaryRT(GetPyramidShaderID(i));
+                for (int i = 0; i < bloomMaxIterations * 2; i++) {
+                    cmb.ReleaseTemporaryRT(GetPyramidShaderID(i));
+                }
             }
         }
-
-        cmb.EndSample(BLOOM);
 
         int colorLUTresolution = 32;
         int lutHeight = colorLUTresolution;
         int lutWidth = lutHeight * lutHeight;
 
         // Color Grading data prepare
-        {
-            cmb.BeginSample(LUT);
-
+        using (new ProfilingScope(cmb, new ProfilingSampler(LUT))) {
             // Color Adjectments
             {
                 var colorAdjustments = asset.colorAdjustments;
@@ -174,12 +170,10 @@ public class PostprocessStep : RenderStep {
             cmb.SetGlobalVector("_ColorGradingLUTParameters", colorGradingLUTParameters);
             // no mater what's input, aim to generate _ColorGradingLUT
             BlitTexture(cmb, _BloomResult, _ColorGradingLUT, Pass.TomeMapping);
-
-            cmb.EndSample(LUT);
         }
 
         // Apply color LUT
-        {
+        using (new ProfilingScope(cmb, new ProfilingSampler("Apply color LUT"))) {
             cmb.SetGlobalVector("_LUTScaleOffset", new Vector4(1f / lutWidth, 1f / lutHeight, lutHeight - 1));
             cmb.GetTemporaryRT(_ColorLUTResult, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
             BlitTexture(cmb, _BloomResult, _ColorLUTResult, Pass.Final);
