@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
 public class PostprocessStep : RenderStep {
@@ -17,6 +18,10 @@ public class PostprocessStep : RenderStep {
     readonly int _BloomIntensity = Shader.PropertyToID("_BloomIntensity");
     readonly int _BloomResult = Shader.PropertyToID("_BloomResult");
     readonly int _ColorGradingLUT = Shader.PropertyToID("_ColorGradingLUT");
+    readonly int _ColorLUTResult = Shader.PropertyToID("_ColorLUTResult");
+    readonly int _FXAAConfig = Shader.PropertyToID("_FXAAConfig");
+    readonly int _AATexture = Shader.PropertyToID("_AATexture");
+    readonly int _FinalTexture = Shader.PropertyToID("_FinalTexture");
 
     public PostprocessStep(NoobRenderPipeline noobRenderPipeline) {
         this.noobRenderPipeline = noobRenderPipeline;
@@ -34,7 +39,7 @@ public class PostprocessStep : RenderStep {
         FXAA
     }
 
-    public void Excute(ref ScriptableRenderContext context,  Vector2Int bufferSize) {
+    public void Excute(ref ScriptableRenderContext context, Vector2Int bufferSize) {
         CommandBuffer cmb = CommandBufferPool.Get("PostprocessStep");
         NoobRenderPipelineAsset asset = noobRenderPipeline.asset;
         int _CameraFrameBuffer = noobRenderPipeline.rendererStep._ColorAttachment;
@@ -174,34 +179,42 @@ public class PostprocessStep : RenderStep {
         }
 
         // Apply color LUT
-        int _ColorLUTResult = Shader.PropertyToID("_ColorLUTResult");
         {
             cmb.SetGlobalVector("_LUTScaleOffset", new Vector4(1f / lutWidth, 1f / lutHeight, lutHeight - 1));
             cmb.GetTemporaryRT(_ColorLUTResult, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
             BlitTexture(cmb, _BloomResult, _ColorLUTResult, Pass.Final);
         }
 
-        int _FXAAConfig = Shader.PropertyToID("_FXAAConfig");
-        int _AATexture = Shader.PropertyToID("_AATexture");
-        {
+        // FXAA
+        using (new ProfilingScope(cmb, new ProfilingSampler("FXAA"))) {
             FXAA fxaa = asset.fxaa;
             cmb.SetGlobalVector(_FXAAConfig, fxaa);
             cmb.GetTemporaryRT(_AATexture, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
             BlitTexture(cmb, _ColorLUTResult, _AATexture, Pass.FXAA);
         }
 
-        // Final Blit
-        {
-            cmb.BeginSample(FINAL_BLIT);
-
-            // Blit Bloom Result to Camera target with LUT
-            BlitTexture(cmb, _AATexture, BuiltinRenderTextureType.CameraTarget, Pass.Copy);
-            // BlitTexture(cmb, _BloomResult, BuiltinRenderTextureType.CameraTarget, Pass.Final, camera.pixelRect);
-
-            cmb.EndSample(FINAL_BLIT);
+        // Final Copy
+        using (new ProfilingScope(cmb, new ProfilingSampler("Final Copy"))) {
+            RenderTextureDescriptor colorRTDesc = new RenderTextureDescriptor(bufferSize.x, bufferSize.y);
+            colorRTDesc.enableRandomWrite = true; //For compute
+            cmb.GetTemporaryRT(_FinalTexture, colorRTDesc);
+            cmb.CopyTexture(_AATexture, _FinalTexture);
         }
-        cmb.ReleaseTemporaryRT(_ColorLUTResult);
-        cmb.ReleaseTemporaryRT(_AATexture);
+
+        // Execute compute shader
+        if (noobRenderPipeline.asset.computeShader != null) {
+            using (new ProfilingScope(cmb, new ProfilingSampler("Execute compute shader"))) {
+                ComputeShader computeShader = noobRenderPipeline.asset.computeShader;
+                cmb.SetComputeTextureParam(computeShader, 0, _FinalTexture, _FinalTexture);
+                cmb.DispatchCompute(computeShader, 0, bufferSize.x / 8 + 1, bufferSize.y / 8 + 1, 1);
+            }
+        }
+
+        // Final blit
+        using (new ProfilingScope(cmb, new ProfilingSampler(FINAL_BLIT))) {
+            BlitTexture(cmb, _FinalTexture, BuiltinRenderTextureType.CameraTarget, Pass.Copy);
+        }
+
         ExcuteAndClearCommandBuffer(context, cmb);
     }
 
@@ -228,5 +241,8 @@ public class PostprocessStep : RenderStep {
         cmb.ReleaseTemporaryRT(_BloomPrefilter);
         cmb.ReleaseTemporaryRT(_BloomResult);
         cmb.ReleaseTemporaryRT(_ColorGradingLUT);
+        cmb.ReleaseTemporaryRT(_AATexture);
+        cmb.ReleaseTemporaryRT(_ColorLUTResult);
+        cmb.ReleaseTemporaryRT(_FinalTexture);
     }
 }

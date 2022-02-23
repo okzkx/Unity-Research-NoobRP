@@ -33,3 +33,4 @@ MonoBehaviour:
     relativeThreshold: 0.07
     subpixelBlending: 0.25
   enableDefaultPass: 0
+  computeShader: {fileID: 0}

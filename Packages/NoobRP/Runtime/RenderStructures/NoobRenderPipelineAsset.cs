@@ -50,6 +50,7 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
 
     public FXAA fxaa;
     public bool enableDefaultPass;
+    public ComputeShader computeShader;
 
     protected override RenderPipeline CreatePipeline() {
         return new NoobRenderPipeline(this);
