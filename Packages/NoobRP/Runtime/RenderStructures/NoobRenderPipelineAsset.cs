@@ -49,6 +49,7 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
     [Range(0.5f, 2f)] public float renderScale = 1;
 
     public FXAA fxaa;
+    public bool enableDefaultPass;
 
     protected override RenderPipeline CreatePipeline() {
         return new NoobRenderPipeline(this);

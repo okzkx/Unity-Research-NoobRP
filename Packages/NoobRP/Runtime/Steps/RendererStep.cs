@@ -2,8 +2,8 @@
 using UnityEngine.Rendering;
 
 public class RendererStep : RenderStep {
-    public readonly ShaderTagId NoobRPLightMode = new ShaderTagId("Both");
-    public readonly ShaderTagId m_PassNameDefault = new ShaderTagId("SRPDefaultUnlit"); //The shader pass tag for replacing shaders without pass
+    public readonly ShaderTagId Both = new ShaderTagId("Both");
+    public readonly ShaderTagId SRPDefaultUnlit = new ShaderTagId("SRPDefaultUnlit"); //The shader pass tag for replacing shaders without pass
     public readonly int _ColorAttachment = Shader.PropertyToID("_CameraFrameBuffer");
     public readonly int _DepthAttachment = Shader.PropertyToID("_DepthBuffer");
     public readonly int _ColorMap = Shader.PropertyToID("_ColorMap");
@@ -17,6 +17,8 @@ public class RendererStep : RenderStep {
         for (int i = 0; i < multiPassTags.Length; i++) {
             multiPassTags[i] = new ShaderTagId("MultiPass" + i);
         }
+
+        this.noobRenderPipeline = noobRenderPipeline;
     }
 
     // Render Renderers
@@ -24,7 +26,7 @@ public class RendererStep : RenderStep {
     public void Excute(ref ScriptableRenderContext context, Camera camera, Vector2Int bufferSize, ref CullingResults cullingResults) {
         // Draw Setting
         var sortingSettings = new SortingSettings(camera);
-        var drawingSettings = new DrawingSettings(NoobRPLightMode, default);
+        var drawingSettings = new DrawingSettings(Both, default);
         drawingSettings.perObjectData =
             PerObjectData.ReflectionProbes |
             PerObjectData.Lightmaps | PerObjectData.ShadowMask |
@@ -76,9 +78,15 @@ public class RendererStep : RenderStep {
             for (int i = 0; i < multiPassTags.Length; i++) {
                 drawingSettings.SetShaderPassName(i + 1, multiPassTags[i]);
             }
-            
+
             context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
-            
+
+            if (noobRenderPipeline.asset.enableDefaultPass) {
+                DrawingSettings drawSettingsDefault = new DrawingSettings(SRPDefaultUnlit, default);
+                drawSettingsDefault.SetShaderPassName(1, SRPDefaultUnlit);
+                drawSettingsDefault.sortingSettings = sortingSettings;
+                context.DrawRenderers(cullingResults, ref drawSettingsDefault, ref filteringSettings);
+            }
         }
 
         ExcuteAndClearCommandBuffer(context, cmb);
