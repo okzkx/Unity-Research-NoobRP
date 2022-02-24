@@ -51,6 +51,7 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
     public FXAA fxaa;
     public bool enableDefaultPass;
     public ComputeShader computeShader;
+    public Shader movtionVectorShader;
 
     protected override RenderPipeline CreatePipeline() {
         return new NoobRenderPipeline(this);
@@ -96,6 +97,9 @@ public class NoobRenderPipeline : RenderPipeline {
 
         float renderScale = asset.renderScale;
         Vector2Int bufferSize = new Vector2Int((int) (camera.pixelWidth * renderScale), (int) (camera.pixelHeight * renderScale));
+        cmb.SetGlobalVector("_BufferSize", new Vector4(1f / bufferSize.x, 1f / bufferSize.y, bufferSize.x, bufferSize.y));
+        context.ExecuteCommandBuffer(cmb);
+        cmb.Clear();
 
         rendererStep.Excute(ref context, camera, bufferSize, ref cullingResults);
 

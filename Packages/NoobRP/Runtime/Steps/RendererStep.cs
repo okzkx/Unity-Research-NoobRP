@@ -12,6 +12,13 @@ public class RendererStep : RenderStep {
     public readonly ShaderTagId[] multiPassTags = new ShaderTagId[10];
 
     private NoobRenderPipeline noobRenderPipeline;
+    private int _MotionVectorMap = Shader.PropertyToID("_MotionVectorMap");
+    private Material motionVectorMaterial;
+    private Matrix4x4 _NonJitteredVP;
+    private Matrix4x4 _PreviousVP;
+    private int _VPLast = Shader.PropertyToID("_VPLast");
+    private Matrix4x4 vpLast = Matrix4x4.identity;
+
 
     public RendererStep(NoobRenderPipeline noobRenderPipeline) {
         for (int i = 0; i < multiPassTags.Length; i++) {
@@ -19,6 +26,7 @@ public class RendererStep : RenderStep {
         }
 
         this.noobRenderPipeline = noobRenderPipeline;
+        motionVectorMaterial = CoreUtils.CreateEngineMaterial(noobRenderPipeline.asset.movtionVectorShader);
     }
 
     // Render Renderers
@@ -27,13 +35,8 @@ public class RendererStep : RenderStep {
         // Draw Setting
         var sortingSettings = new SortingSettings(camera);
         var drawingSettings = new DrawingSettings(Both, default);
-        drawingSettings.perObjectData =
-            PerObjectData.ReflectionProbes |
-            PerObjectData.Lightmaps | PerObjectData.ShadowMask |
-            PerObjectData.LightProbe | PerObjectData.OcclusionProbe |
-            PerObjectData.LightProbeProxyVolume |
-            PerObjectData.OcclusionProbeProxyVolume;
-
+        drawingSettings.perObjectData = PerObjectData.None | PerObjectData.MotionVectors;
+        
         // Filter Setting
         var filteringSettings = new FilteringSettings(RenderQueueRange.opaque);
 
@@ -42,8 +45,43 @@ public class RendererStep : RenderStep {
         // Set up shader properties
         context.SetupCameraProperties(camera);
 
+        // ExcuteAndClearCommandBuffer(context, cmb);
+
+        //************************** Rendering motion vectors ************************************
+        // if(false){
+        using (new ProfilingScope(cmb, new ProfilingSampler("Rendering motion vectors "))) {
+            DrawingSettings drawSettingsMotionVector = new DrawingSettings(defaultPassName, sortingSettings) {
+                perObjectData = PerObjectData.MotionVectors,
+                overrideMaterial = motionVectorMaterial,
+                overrideMaterialPassIndex = 0
+            };
+
+            FilteringSettings filterSettingsMotionVector = new FilteringSettings(RenderQueueRange.all) {
+                excludeMotionVectorObjects = false
+            };
+
+            // Opaques motion vector
+            {
+                cmb.GetTemporaryRT(_MotionVectorMap, bufferSize.x, bufferSize.y, 24, FilterMode.Bilinear, RenderTextureFormat.Default);
+                cmb.SetRenderTarget(_MotionVectorMap);
+                cmb.ClearRenderTarget(true, true, Color.black);
+                cmb.SetGlobalMatrix(_VPLast, vpLast);
+                ExcuteAndClearCommandBuffer(context, cmb);
+
+                //Opaque objects
+                sortingSettings.criteria = SortingCriteria.CommonOpaque;
+                drawSettingsMotionVector.sortingSettings = sortingSettings;
+                filterSettingsMotionVector.renderQueueRange = RenderQueueRange.opaque;
+                context.DrawRenderers(cullingResults, ref drawSettingsMotionVector, ref filterSettingsMotionVector);
+            }
+            // camera.worldToCameraMatrix
+            Matrix4x4 V = camera.worldToCameraMatrix;
+            V.SetColumn(1, V.GetColumn(1) * -1);
+            // V.set
+            vpLast = camera.projectionMatrix * V;
+        }
+
         using (new ProfilingScope(cmb, new ProfilingSampler("RendererStep"))) {
-            cmb.SetGlobalVector("_BufferSize", new Vector4(1f / bufferSize.x, 1f / bufferSize.y, bufferSize.x, bufferSize.y));
 
             cmb.GetTemporaryRT(_ColorAttachment, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
             cmb.GetTemporaryRT(_DepthAttachment, bufferSize.x, bufferSize.y, 32, FilterMode.Point, RenderTextureFormat.Depth);

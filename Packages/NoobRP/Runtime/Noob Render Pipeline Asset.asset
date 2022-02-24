@@ -33,4 +33,5 @@ MonoBehaviour:
     relativeThreshold: 0.07
     subpixelBlending: 0.25
   enableDefaultPass: 0
-  computeShader: {fileID: 0}
+  computeShader: {fileID: 7200000, guid: 8144bf2e2cffe1c4fafa515b6943be8c, type: 3}
+  movtionVectorShader: {fileID: 4800000, guid: 8e7d16b9a29249309fb117b38f892070, type: 3}
