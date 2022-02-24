@@ -8,11 +8,11 @@ public class RendererStep : RenderStep {
     public readonly int _DepthAttachment = Shader.PropertyToID("_DepthBuffer");
     public readonly int _ColorMap = Shader.PropertyToID("_ColorMap");
     public readonly int _DepthMap = Shader.PropertyToID("_DepthMap");
+    public readonly int _MotionVectorMap = Shader.PropertyToID("_MotionVectorMap");
 
     public readonly ShaderTagId[] multiPassTags = new ShaderTagId[10];
 
     private NoobRenderPipeline noobRenderPipeline;
-    private int _MotionVectorMap = Shader.PropertyToID("_MotionVectorMap");
     private Material motionVectorMaterial;
     private Matrix4x4 _NonJitteredVP;
     private Matrix4x4 _PreviousVP;
@@ -26,7 +26,7 @@ public class RendererStep : RenderStep {
         }
 
         this.noobRenderPipeline = noobRenderPipeline;
-        motionVectorMaterial = CoreUtils.CreateEngineMaterial(noobRenderPipeline.asset.movtionVectorShader);
+        motionVectorMaterial = CoreUtils.CreateEngineMaterial("NoobRP/MotionVector");
     }
 
     // Render Renderers
@@ -135,5 +135,6 @@ public class RendererStep : RenderStep {
         cmb.ReleaseTemporaryRT(_DepthAttachment);
         cmb.ReleaseTemporaryRT(_ColorMap);
         cmb.ReleaseTemporaryRT(_DepthMap);
+        cmb.ReleaseTemporaryRT(_MotionVectorMap);
     }
 }

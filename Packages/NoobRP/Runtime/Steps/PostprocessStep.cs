@@ -22,10 +22,15 @@ public class PostprocessStep : RenderStep {
     readonly int _FXAAConfig = Shader.PropertyToID("_FXAAConfig");
     readonly int _AATexture = Shader.PropertyToID("_AATexture");
     readonly int _FinalTexture = Shader.PropertyToID("_FinalTexture");
+    int _MotionBlurResult = Shader.PropertyToID("_MotionBlurResult");
+    int _TextureInput = Shader.PropertyToID("_TextureInput");
+    int _LastTexture = Shader.PropertyToID("_LastTexture");
+    private Material motionBlurMaterial;
 
     public PostprocessStep(NoobRenderPipeline noobRenderPipeline) {
         this.noobRenderPipeline = noobRenderPipeline;
-        this.postProcessMaterial = CoreUtils.CreateEngineMaterial("NoobRP/PostProcess");
+        postProcessMaterial = CoreUtils.CreateEngineMaterial("NoobRP/PostProcess");
+        motionBlurMaterial = CoreUtils.CreateEngineMaterial("NoobRP/MotionBlur");
     }
 
     enum Pass {
@@ -187,12 +192,21 @@ public class PostprocessStep : RenderStep {
             BlitTexture(cmb, _ColorLUTResult, _AATexture, Pass.FXAA);
         }
 
+        // Motion blur
+        using (new ProfilingScope(cmb, new ProfilingSampler("Motion Blur"))) {
+            cmb.SetGlobalTexture(_TextureInput, _AATexture);
+            // TODO: _LastTexture comes to mistake, how to get a persistence RenderTexture
+            cmb.GetTemporaryRT(_LastTexture, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
+            cmb.GetTemporaryRT(_MotionBlurResult, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
+            cmb.Blit(_AATexture, _MotionBlurResult, motionBlurMaterial);
+        }
+
         // Final Copy
         using (new ProfilingScope(cmb, new ProfilingSampler("Final Copy"))) {
             RenderTextureDescriptor colorRTDesc = new RenderTextureDescriptor(bufferSize.x, bufferSize.y);
             colorRTDesc.enableRandomWrite = true; //For compute
             cmb.GetTemporaryRT(_FinalTexture, colorRTDesc);
-            cmb.CopyTexture(_AATexture, _FinalTexture);
+            cmb.Blit(_MotionBlurResult, _FinalTexture);
         }
 
         // Execute compute shader
@@ -206,7 +220,8 @@ public class PostprocessStep : RenderStep {
 
         // Final blit
         using (new ProfilingScope(cmb, new ProfilingSampler(FINAL_BLIT))) {
-            BlitTexture(cmb, _FinalTexture, BuiltinRenderTextureType.CameraTarget, Pass.Copy);
+            BlitTexture(cmb, _FinalTexture, BuiltinRenderTextureType.CameraTarget, Pass.Copy); 
+            cmb.Blit(_FinalTexture, _LastTexture);
         }
 
         ExcuteAndClearCommandBuffer(context, cmb);
@@ -238,5 +253,7 @@ public class PostprocessStep : RenderStep {
         cmb.ReleaseTemporaryRT(_AATexture);
         cmb.ReleaseTemporaryRT(_ColorLUTResult);
         cmb.ReleaseTemporaryRT(_FinalTexture);
+        cmb.ReleaseTemporaryRT(_MotionBlurResult);
+        cmb.ReleaseTemporaryRT(_LastTexture);
     }
 }

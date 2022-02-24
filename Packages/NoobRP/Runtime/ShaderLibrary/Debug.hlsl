@@ -7,3 +7,8 @@ float4 Debug(float2 v)
 {
     return float4(v, 0, 1);
 }
+
+float4 Debug(float3 v)
+{
+    return float4(v, 1);
+}

@@ -42,6 +42,7 @@ float4 Fragment(VaryingsMeshToPS input) : SV_Target0
     screenUVLast.y = 1.0 - screenUVLast.y;
     #endif
 
+    float2 motionVector = screenUV - screenUVLast;
     // return Debug(screenUV - screenUVLast) * 100;
-    return float4(screenUV - screenUVLast, 0, 1);
+    return float4(motionVector, 0, 1);
 }
