@@ -196,9 +196,10 @@ public class PostprocessStep : RenderStep {
         using (new ProfilingScope(cmb, new ProfilingSampler("Motion Blur"))) {
             cmb.SetGlobalTexture(_TextureInput, _AATexture);
             // TODO: _LastTexture comes to mistake, how to get a persistence RenderTexture
-            cmb.GetTemporaryRT(_LastTexture, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
+            // cmb.GetTemporaryRT(_LastTexture, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
             cmb.GetTemporaryRT(_MotionBlurResult, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
-            cmb.Blit(_AATexture, _MotionBlurResult, motionBlurMaterial);
+            // cmb.Blit(_AATexture, _MotionBlurResult, motionBlurMaterial);
+            cmb.Blit(_AATexture, _MotionBlurResult);
         }
 
         // Final Copy
@@ -221,7 +222,8 @@ public class PostprocessStep : RenderStep {
         // Final blit
         using (new ProfilingScope(cmb, new ProfilingSampler(FINAL_BLIT))) {
             BlitTexture(cmb, _FinalTexture, BuiltinRenderTextureType.CameraTarget, Pass.Copy); 
-            cmb.Blit(_FinalTexture, _LastTexture);
+            // TODO: _LastTexture comes to mistake, how to get a persistence RenderTexture
+            // cmb.Blit(_FinalTexture, _LastTexture);
         }
 
         ExcuteAndClearCommandBuffer(context, cmb);
