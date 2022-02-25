@@ -153,7 +153,6 @@ public class LightStep : RenderStep {
                     Vector2Int offset = new Vector2Int(splitIndex % sideSplitCount, splitIndex / sideSplitCount);
                     Rect viewPort = new Rect(offset.x * tileWidth, offset.y * tileWidth, tileWidth, tileWidth);
                     cmb.SetViewport(viewPort);
-
                     dirShadowMatrices[splitIndex] = GetDirectionalLightCascadeShadowMatrix(viewMatrix, projMatrix, offset, sideSplitCount);
                     cmb.SetViewProjectionMatrices(viewMatrix, projMatrix);
                     ExcuteAndClearCommandBuffer(context, cmb);
@@ -255,7 +254,7 @@ public class LightStep : RenderStep {
         Matrix4x4 m = projMatrix * viewMatrix;
 
         if (SystemInfo.usesReversedZBuffer) {
-            Vector3 forwardDir = -m.GetRow(2);
+            Vector4 forwardDir = -m.GetRow(2);
             m.SetRow(2, forwardDir);
         }
 
@@ -290,16 +289,5 @@ public class LightStep : RenderStep {
         int colIndex = i % sideSplitCount;
 
         return new Rect(colIndex * tileWidth, rowIndex * tileWidth, tileWidth, tileWidth);
-    }
-
-    static Matrix4x4 ConvertToAtlasMatrix(Matrix4x4 m, Vector2 offset, int split) {
-        if (SystemInfo.usesReversedZBuffer) {
-            m.SetRow(2, -m.GetRow(2));
-        }
-
-        m = Matrix4x4.Scale(math.float3(0.25f, 0.25f, 0.5f)) * m;
-        m = Matrix4x4.Translate(math.float3(0.25f + 0.5f * offset.x, 0.25f + 0.5f * offset.y, 0.5f)) * m;
-
-        return m;
     }
 }
