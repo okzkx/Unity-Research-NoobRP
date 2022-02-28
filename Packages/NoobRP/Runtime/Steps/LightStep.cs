@@ -39,7 +39,7 @@ public class LightStep : RenderStep {
         cmb.ReleaseTemporaryRT(_SpotPointShadowAtlas);
     }
 
-    public void Excute(ref ScriptableRenderContext context, ref CullingResults cullingResults) {
+    public void Execute(ref ScriptableRenderContext context, ref CullingResults cullingResults) {
         var cmb = CommandBufferPool.Get(stepName);
 
         // Lights Data setting

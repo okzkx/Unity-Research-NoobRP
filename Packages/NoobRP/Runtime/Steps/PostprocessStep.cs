@@ -44,7 +44,7 @@ public class PostprocessStep : RenderStep {
         FXAA
     }
 
-    public void Excute(ref ScriptableRenderContext context, Vector2Int bufferSize) {
+    public void Execute(ref ScriptableRenderContext context, Vector2Int bufferSize) {
         CommandBuffer cmb = CommandBufferPool.Get("PostprocessStep");
         NoobRenderPipelineAsset asset = noobRenderPipeline.asset;
         int _CameraFrameBuffer = noobRenderPipeline.rendererStep._ColorAttachment;

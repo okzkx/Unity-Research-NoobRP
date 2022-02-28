@@ -93,7 +93,8 @@ public class NoobRenderPipeline : RenderPipeline {
         scp.shadowDistance = Mathf.Min(asset.maxShadowDistance, camera.farClipPlane);
         CullingResults cullingResults = context.Cull(ref scp);
 
-        lightStep.Excute(ref context, ref cullingResults);
+        // Execute normal path
+        lightStep.Execute(ref context, ref cullingResults);
 
         float renderScale = asset.renderScale;
         Vector2Int bufferSize = new Vector2Int((int) (camera.pixelWidth * renderScale), (int) (camera.pixelHeight * renderScale));
@@ -101,7 +102,7 @@ public class NoobRenderPipeline : RenderPipeline {
         context.ExecuteCommandBuffer(cmb);
         cmb.Clear();
 
-        rendererStep.Excute(ref context, camera, bufferSize, ref cullingResults);
+        rendererStep.Execute(ref context, camera, bufferSize, ref cullingResults);
 
 #if UNITY_EDITOR
         if (UnityEditor.Handles.ShouldRenderGizmos()) {
@@ -109,7 +110,7 @@ public class NoobRenderPipeline : RenderPipeline {
         }
 #endif
 
-        postprocessStep.Excute(ref context, bufferSize);
+        postprocessStep.Execute(ref context, bufferSize);
 
 #if UNITY_EDITOR
         if (UnityEditor.Handles.ShouldRenderGizmos()) {

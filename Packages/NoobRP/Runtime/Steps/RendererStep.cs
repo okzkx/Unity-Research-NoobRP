@@ -31,7 +31,7 @@ public class RendererStep : RenderStep {
 
     // Render Renderers
     // if (false) 
-    public void Excute(ref ScriptableRenderContext context, Camera camera, Vector2Int bufferSize, ref CullingResults cullingResults) {
+    public void Execute(ref ScriptableRenderContext context, Camera camera, Vector2Int bufferSize, ref CullingResults cullingResults) {
         // Draw Setting
         var sortingSettings = new SortingSettings(camera);
         var drawingSettings = new DrawingSettings(Both, default);
