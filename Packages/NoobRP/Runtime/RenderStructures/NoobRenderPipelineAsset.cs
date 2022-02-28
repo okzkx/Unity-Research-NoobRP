@@ -53,6 +53,13 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
     public ComputeShader computeShader;
     public Shader movtionVectorShader;
 
+    public enum RenderMode {
+        Steps,
+        RenderGraph
+    }
+
+    public RenderMode renderMode;
+
     protected override RenderPipeline CreatePipeline() {
         return new NoobRenderPipeline(this);
     }
@@ -60,24 +67,38 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
 
 public class NoobRenderPipeline : RenderPipeline {
     public NoobRenderPipelineAsset asset;
-
-    protected override void Render(ScriptableRenderContext context, Camera[] cameras) {
-        foreach (var camera in cameras) {
-            Render(context, camera);
-        }
-    }
-
     public LightStep lightStep;
     public RendererStep rendererStep;
     public PostprocessStep postprocessStep;
+    public RenderGraphPath renderGraphPath;
 
     public NoobRenderPipeline(NoobRenderPipelineAsset asset) {
         this.asset = asset;
         lightStep = new LightStep(this);
         rendererStep = new RendererStep(this);
         postprocessStep = new PostprocessStep(this);
+        renderGraphPath = new RenderGraphPath(this);
 
         GraphicsSettings.useScriptableRenderPipelineBatching = asset.srpBatch;
+    }
+
+    protected override void Render(ScriptableRenderContext context, Camera[] cameras) {
+        switch (asset.renderMode) {
+            case NoobRenderPipelineAsset.RenderMode.Steps:
+                NormalPathExecute(context, cameras);
+                break;
+            case NoobRenderPipelineAsset.RenderMode.RenderGraph:
+                renderGraphPath.Execute(context, cameras);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private void NormalPathExecute(ScriptableRenderContext context, Camera[] cameras) {
+        foreach (var camera in cameras) {
+            Render(context, camera);
+        }
     }
 
     private void Render(ScriptableRenderContext context, Camera camera) {
@@ -86,7 +107,6 @@ public class NoobRenderPipeline : RenderPipeline {
         }
 
         camera.allowHDR = true;
-        CommandBuffer cmb = CommandBufferPool.Get();
 
         // Cullling
         if (!camera.TryGetCullingParameters(out ScriptableCullingParameters scp)) return;
@@ -96,11 +116,8 @@ public class NoobRenderPipeline : RenderPipeline {
         // Execute normal path
         lightStep.Execute(ref context, ref cullingResults);
 
-        float renderScale = asset.renderScale;
-        Vector2Int bufferSize = new Vector2Int((int) (camera.pixelWidth * renderScale), (int) (camera.pixelHeight * renderScale));
-        cmb.SetGlobalVector("_BufferSize", new Vector4(1f / bufferSize.x, 1f / bufferSize.y, bufferSize.x, bufferSize.y));
-        context.ExecuteCommandBuffer(cmb);
-        cmb.Clear();
+        CommandBuffer cmb = CommandBufferPool.Get();
+        Vector2Int bufferSize = InitBufferSize(context, camera, cmb);
 
         rendererStep.Execute(ref context, camera, bufferSize, ref cullingResults);
 
@@ -119,6 +136,16 @@ public class NoobRenderPipeline : RenderPipeline {
 #endif
 
         EndRender(context, cmb);
+    }
+
+    public Vector2Int InitBufferSize(ScriptableRenderContext context, Camera camera, CommandBuffer cmb) {
+        float renderScale = asset.renderScale;
+        Vector2Int bufferSize = new Vector2Int((int) (camera.pixelWidth * renderScale), (int) (camera.pixelHeight * renderScale));
+        cmb.SetGlobalVector("_BufferSize", new Vector4(1f / bufferSize.x, 1f / bufferSize.y, bufferSize.x, bufferSize.y));
+        context.ExecuteCommandBuffer(cmb);
+        cmb.Clear();
+
+        return bufferSize;
     }
 
     private void EndRender(ScriptableRenderContext context, CommandBuffer cmb) {
