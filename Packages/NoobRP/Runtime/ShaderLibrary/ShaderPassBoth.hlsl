@@ -1,5 +1,6 @@
 ﻿#include "light.hlsl"
 #include "Shadow.hlsl"
+#include "GI.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
 
 //-------------------------------------------------------------------------------------
@@ -10,8 +11,9 @@ struct AttributesMesh
 {
     float3 positionOS : POSITION;
     float3 normalOS : NORMAL;
-    float2 uv0:TEXCOORD;
     float4 tangentOS : TANGENT;
+    float2 uv0:TEXCOORD;
+    GI_ATTRIBUTE_DATA
 };
 
 struct VaryingsMeshToPS
@@ -21,6 +23,7 @@ struct VaryingsMeshToPS
     float3 normalWS : TEXCOORD1;
     float3 positionWS : TEXCOORD2;
     float4 tangentWS : TEXCOORD3;
+    GI_VARYINGS_DATA
 };
 
 //-------------------------------------------------------------------------------------
@@ -57,13 +60,6 @@ CBUFFER_END
 // functions
 //-------------------------------------------------------------------------------------
 
-real PerceptualRoughnessToMipmapLevel(real perceptualRoughness)
-{
-    perceptualRoughness = perceptualRoughness * (1.7 - 0.7 * perceptualRoughness);
-
-    return perceptualRoughness * 6;
-}
-
 float3 DecodeNormal(float4 sample, float scale)
 {
     #if defined(UNITY_NO_DXT5nm)
@@ -81,22 +77,8 @@ VaryingsMeshToPS Vert(AttributesMesh inputMesh)
     varyings.normalWS = TransformObjectToWorldNormal(inputMesh.normalOS, true);
     varyings.positionWS = TransformObjectToWorld(inputMesh.positionOS);
     varyings.tangentWS = float4(TransformObjectToWorldDir(inputMesh.tangentOS), inputMesh.tangentOS.w);
+    TRANSFER_GI_DATA(inputMesh, varyings);
     return varyings;
-}
-
-float4 Debug(float f)
-{
-    return float4(f,f,f, 1);
-}
-
-float4 Debug(float3 f)
-{
-    return float4(f, 1);
-}
-
-float4 Debug(float4 f)
-{
-    return f;
 }
 
 float4 Frag(VaryingsMeshToPS input): SV_Target0
@@ -127,6 +109,11 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
     // E(Illuminance) : To simulate the Irradiance in BRDF
     float3 E = Li * saturate(dot(normalWS, lightWS));
 
+    // Light map
+    float2 lightMapUV = GI_FRAGMENT_DATA(input);
+    float3 lightMap = SampleLightMap(lightMapUV);
+    E += lightMap;
+
     // Specular
     float3 viewWS = normalize(_WorldSpaceCameraPos.xyz - input.positionWS);
     float3 halfWS = normalize(viewWS + lightWS);
@@ -155,17 +142,17 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
         float3 lightPosToFaceDir = normalize(position - spotLight.position);
         float3 lightDir = -lightPosToFaceDir;
         float shadowAttenuation = GetSpotShadowAttenuation(i, position, lightDir);
-        float spotLightAttenuation = 1 - saturate( distance(position, spotLight.position) / spotLight.range);
+        float spotLightAttenuation = 1 - saturate(distance(position, spotLight.position) / spotLight.range);
         float3 lightColor = spotLight.color * spotLightAttenuation * shadowAttenuation;
         float minAngleCos = cos(spotLight.angle * 0.5); // * 0.5 is hack for shadowMap
         float angleCos = dot(lightPosToFaceDir, spotLight.direction);
         float lightArea = Smoothstep01(saturate(100 * (angleCos - minAngleCos)));
-        float3 spotLightE =  saturate(dot(normalWS, lightDir)) * lightColor;
+        float3 spotLightE = saturate(dot(normalWS, lightDir)) * lightColor;
 
         float3 halfVL = normalize(viewWS + lightDir);
         float specularFactorSL = pow(max(0.0, dot(normalWS, halfVL)), specularPow);
         float3 specularSL = specularFactorSL * lightColor * smoothness;
-        
+
         Lo += lightArea * (albedo.xyz / PI + specularSL) * spotLightE;
     }
 
@@ -175,14 +162,14 @@ float4 Frag(VaryingsMeshToPS input): SV_Target0
         float3 lightPosToFaceDir = normalize(position - pointLight.position);
         float3 lightDir = -lightPosToFaceDir;
         float shadowAttenuation = GetPointShadowAttenuation(i, position, lightDir);
-        float pointLightAttenuation = 1 - saturate( distance(position, pointLight.position) / pointLight.range);
+        float pointLightAttenuation = 1 - saturate(distance(position, pointLight.position) / pointLight.range);
         float3 lightColor = pointLight.color * pointLightAttenuation * shadowAttenuation;
-        float3 pointLightE =  saturate(dot(normalWS, lightDir)) * lightColor;
+        float3 pointLightE = saturate(dot(normalWS, lightDir)) * lightColor;
 
         float3 halfVL = normalize(viewWS + lightDir);
         float specularFactorSL = pow(saturate(dot(normalWS, halfVL)), specularPow);
         float3 specularSL = specularFactorSL * lightColor * smoothness;
-        
+
         Lo += (albedo.xyz / PI + specularSL) * pointLightE;
     }
 

@@ -18,17 +18,16 @@ Shader "NoobRP/Lit" {
     }
 
     HLSLINCLUDE
-    
     //-------------------------------------------------------------------------------------
     // library include
     //-------------------------------------------------------------------------------------
 
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
     #include "Packages/com.noobrp.core/Runtime/ShaderLibrary/UnityInput.hlsl"
+    #include "Packages/com.noobrp.core/Runtime/ShaderLibrary/Debug.hlsl"
 
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceTransforms.hlsl"
-    
     ENDHLSL
 
     SubShader {
@@ -45,6 +44,7 @@ Shader "NoobRP/Lit" {
             HLSLPROGRAM
             #pragma multi_compile _DIFFUSE_LAMBERT _DIFFUSE_HALF_LAMBERT
             #pragma multi_compile _SPECULAR_NONE _SPECULAR_PHONE _SPECULAR_BLING_PHONE
+            #pragma multi_compile _ LIGHTMAP_ON
 
             #pragma vertex Vert
             #pragma fragment Frag

@@ -35,8 +35,10 @@ public class RendererStep : RenderStep {
         // Draw Setting
         var sortingSettings = new SortingSettings(camera);
         var drawingSettings = new DrawingSettings(Both, default);
-        drawingSettings.perObjectData = PerObjectData.None | PerObjectData.MotionVectors;
-        
+        drawingSettings.perObjectData = PerObjectData.None
+                                        | PerObjectData.MotionVectors
+                                        | PerObjectData.Lightmaps;
+
         // Filter Setting
         var filteringSettings = new FilteringSettings(RenderQueueRange.opaque);
 
@@ -82,7 +84,6 @@ public class RendererStep : RenderStep {
         }
 
         using (new ProfilingScope(cmb, new ProfilingSampler("RendererStep"))) {
-
             cmb.GetTemporaryRT(_ColorAttachment, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
             cmb.GetTemporaryRT(_DepthAttachment, bufferSize.x, bufferSize.y, 32, FilterMode.Point, RenderTextureFormat.Depth);
             cmb.SetRenderTarget(_ColorAttachment, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
