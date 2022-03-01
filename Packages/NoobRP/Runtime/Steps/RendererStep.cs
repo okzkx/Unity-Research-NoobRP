@@ -14,6 +14,7 @@ public class RendererStep : RenderStep {
 
     private NoobRenderPipeline noobRenderPipeline;
     private Material motionVectorMaterial;
+    private Material drawModeMaterial;
     private Matrix4x4 _NonJitteredVP;
     private Matrix4x4 _PreviousVP;
     private int _VPLast = Shader.PropertyToID("_VPLast");
@@ -27,6 +28,7 @@ public class RendererStep : RenderStep {
 
         this.noobRenderPipeline = noobRenderPipeline;
         motionVectorMaterial = CoreUtils.CreateEngineMaterial("NoobRP/MotionVector");
+        drawModeMaterial = CoreUtils.CreateEngineMaterial("NoobRP/Lit");
     }
 
     // Render Renderers
@@ -137,5 +139,32 @@ public class RendererStep : RenderStep {
         cmb.ReleaseTemporaryRT(_ColorMap);
         cmb.ReleaseTemporaryRT(_DepthMap);
         cmb.ReleaseTemporaryRT(_MotionVectorMap);
+    }
+
+    public void ExecuteDrawCameraMode(ref ScriptableRenderContext context, Camera camera, Vector2Int bufferSize, ref CullingResults cullingResults) {
+        var cmb = CommandBufferPool.Get("RendererStep");
+        // Set up shader properties
+        context.SetupCameraProperties(camera);
+        
+        cmb.GetTemporaryRT(_ColorAttachment, bufferSize.x, bufferSize.y, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
+        cmb.GetTemporaryRT(_DepthAttachment, bufferSize.x, bufferSize.y, 32, FilterMode.Point, RenderTextureFormat.Depth);
+        cmb.SetRenderTarget(_ColorAttachment, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
+            _DepthAttachment, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+        cmb.ClearRenderTarget(true, true, Color.clear);
+        ExcuteAndClearCommandBuffer(context, cmb);
+        
+        SortingSettings sortingSettings = new SortingSettings(camera) {
+            criteria = SortingCriteria.CommonOpaque,
+        };
+        DrawingSettings drawingSettings = new DrawingSettings(Both, sortingSettings) {
+            overrideMaterial = drawModeMaterial,
+            sortingSettings = sortingSettings,
+            perObjectData = PerObjectData.None,
+        };
+        
+        FilteringSettings filteringSettings = FilteringSettings.defaultValue;
+        context.DrawSkybox(camera);
+        context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
+        context.Submit();
     }
 }

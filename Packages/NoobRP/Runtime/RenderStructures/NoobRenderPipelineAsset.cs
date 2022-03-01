@@ -1,6 +1,10 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 [Serializable]
 public class FXAA {
@@ -120,18 +124,37 @@ public class NoobRenderPipeline : RenderPipeline {
         CommandBuffer cmb = CommandBufferPool.Get();
         Vector2Int bufferSize = InitBufferSize(context, camera, cmb);
 
-        rendererStep.Execute(ref context, camera, bufferSize, ref cullingResults);
+        bool isShadingMode = true;
+#if UNITY_EDITOR
+        ArrayList sceneViewsArray = SceneView.sceneViews;
+        foreach (SceneView sceneView in sceneViewsArray) {
+            if (sceneView.camera == camera) {
+                if (sceneView.cameraMode.drawMode != DrawCameraMode.Textured) {
+                    isShadingMode = false;
+                }
+            }
+        }
+
+#endif
+
+        if (isShadingMode) {
+            rendererStep.Execute(ref context, camera, bufferSize, ref cullingResults);
+        } else {
+            // TODO: Draw objects though specify material by draw mode
+            rendererStep.ExecuteDrawCameraMode(ref context, camera, bufferSize, ref cullingResults);
+        }
+
 
 #if UNITY_EDITOR
-        if (UnityEditor.Handles.ShouldRenderGizmos()) {
+        if (Handles.ShouldRenderGizmos()) {
             context.DrawGizmos(camera, GizmoSubset.PreImageEffects);
         }
 #endif
-
+        
         postprocessStep.Execute(ref context, bufferSize);
 
 #if UNITY_EDITOR
-        if (UnityEditor.Handles.ShouldRenderGizmos()) {
+        if (Handles.ShouldRenderGizmos()) {
             context.DrawGizmos(camera, GizmoSubset.PostImageEffects);
         }
 #endif
