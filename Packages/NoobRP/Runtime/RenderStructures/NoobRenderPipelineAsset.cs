@@ -51,7 +51,6 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
     public FXAA fxaa;
     public bool enableDefaultPass;
     public ComputeShader computeShader;
-    public Shader movtionVectorShader;
 
     public enum RenderMode {
         Steps,
@@ -63,6 +62,8 @@ public class NoobRenderPipelineAsset : RenderPipelineAsset {
     protected override RenderPipeline CreatePipeline() {
         return new NoobRenderPipeline(this);
     }
+
+    public override Shader defaultShader => Shader.Find("NoobRP/Lit");
 }
 
 public class NoobRenderPipeline : RenderPipeline {
