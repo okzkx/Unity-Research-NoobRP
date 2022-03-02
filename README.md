@@ -8,6 +8,10 @@ but something goes mistake hit v 0.2.0
 
 ## Features
 
+### v 0.3.0 TODO List
+
+1. Use srp renderGraph to refactor all render pipeline
+
 ### v 0.2.0
 
 1. CullingResults
