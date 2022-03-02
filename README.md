@@ -1,12 +1,30 @@
 # Unity-Research-NoobRP
 
-超轻量级纯代码单模式渲染管线
+## Abstract
 
+Light weight codes only script ablerender pipeline
 
+but something goes mistake hit v 0.2.0
 
 ## Features
 
-### V 1
+### v 0.2.0
+
+1. CullingResults
+   1. FrustumCulling
+   2. OcclusionCulling
+2. Draw Settings
+   1. Batching
+   2. NoSpecifyPass
+   3. Multipass
+3. Compute shader
+4. BakedLights (WIP)
+5. motion blur (WIP)
+6. RenderGraph
+7. SceneViewDrawMode
+8. DefaultShaders
+
+### v 0.1.0
 
 1. Main Structure
    1. Render pipeline asset
@@ -31,7 +49,7 @@
 4. Lights
    1. Point
    2. Spot
-   2. Directional 
+   3. Directional 
 
 5. Post Processing
    1. Gaussion Blur 
@@ -45,27 +63,4 @@
 
 7. Anti-Analyze
    1. FXAA （Simple）
-
-   
-
-## TODO List
-
-1. FrustumCulling
-2. OcclusionCulling
-3. Batching
-4. NoSpecificPass
-5. Multipass
-6. Compute
-7. DrawCommands
-8. Callback
-9. Fog
-11. BakedLights
-11. Stencil
-11. motion blur 
-11. RenderPass
-11. RenderGraph
-11. MultiRenderTarget
-11. SceneViewDrawMode
-11. Error
-11. DefaultShaders
 
